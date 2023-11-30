@@ -1,0 +1,97 @@
+InnoDB - Execution engine of MySQL
+Engine is a piece of code.
+ 
+ 
+Biggest difference between SQL and NoSQL is the lack of structure in NoSQL database. Structure is the table in SQL.
+
+NoSQL is optimized for Write Heavy DB
+ 
+-> In SQL the data is stored in HDD and the data is read sequentially as disc stores data sequentially and the data is fixed in size. 
+
+All columns are fixed in size. So even in Variable fields the data is padded so that the data occupied in VARCHAR is the upper bound of the size defined.
+
+-> In NoSQL the data is no fixed size and can not be read sequentially.
+
+How does NoSQL read/store data if it is not fixed ? 
+
+Start with a key value pair like redis or HashMap.
+
+How to implement the get and update functions ?
+
+Solution 1 : store the data in the file.
+
+in the file store the key and corresponding value 
+
+Here the T.C for search and update is O(n) as we have to go through each row for search or update. 
+
+Advantage :
+	It is very cheap
+Disadvantage :
+	Slow and inefficeint 
+
+Solution 2 : Write Ahead Logs
+
+What we do in this system is for write operation, for each entry even if the entry is in the file we will add a new entery at the end of the file in this way the Write T.C is O(1).
+
+Advantage :
+	Write Operation is  O(1)
+	
+Disadvantage :
+	Read is still O(1)
+	Duplicate data
+	
+Solution 3 : Write Ahead Logs + Index
+
+Here while adding a new entry to the file we will store the location of the entry in a index (index is present in memory for fast access)
+
+Here because we are using WAL we will add a new entry to the file and update the index in memory.
+
+Without wal we will get the locaiton of id from the memory and update in File.
+
+Advantage :
+ Read and Write is O(1) T.C.
+ Data is not redundent
+ 
+Disadvantage :
+ High Memory usage makes it unfiesable.
+ 
+WAL is in the Disk itself.
+
+If we use WAL we need to clear the duplicate data and we use Async jobs for this in a process called Compaction.
+
+-> Compaction jobs are executed periodically.
+-> Compaction breaks the file into chunks to not read all data at the same time.
+-> Then in each chunk we de duplicate the data and for each row we verify against the index and if the data does not match what is in index we do not consider the row, if how ever it is the lates row we will create a new WAL file and all latest data to the file.
+-> Becasue we have created a new location in new WAL file we will have to update the index too.
+-> Once everyting is updated replace WAL and index file.
+
+
+-> Index might only contain the most recent values so we can not use only the index files to create the new WAL file.
+ 
+ 
+SOlution 4 LSM approach (Log Structure Merge Table):
+
+-> We saw how we can break a file into chunks (called SortedString table), what if we divide the WAL file into chunks and store only a certain amount of data in a WAL file.
+-> We store the current WAL in the memory as a TreeMap (this is known as memTable) to store order of keys and once the map have reached the limit store the data from treemap in the file in sorted order as it will make searching binary search.
+-> Storing the data in file is called a flush.
+-> If we want to store the data because it is a treemap it takes O(logN) T.C. now if we want to read the data if the data is on the chunk the search T.C. is O(logN) else we have to go to other chunks and search the data on those chunks on the disk.
+-> Now when the chunks are on disk, because we don't know the size of each key value pair as it is unstructured data we can not perform binary search.
+-> But because we have our data in a sorted manner instead of performing binSearch on the data which is unsorted why don't we store the virtual address of the data. Like
+id 01 starts at 100
+id 02 starts at 300
+id 03 starts at 320
+
+so here we know what the id field and the start address is uniform so we can perform the binary search on these ids and if found it will return the start address of twhere the data is stored at. 
+-> After flushing the data we update the index file with data of new chunk created.
+
+-> The latest chunck is always stored as a WAL file so if there is a failure the data is not lost.
+-> For delete we will soft delete (also called Tombstoning) it. So what will we do in this case is we will create a entry in the latest chunk with a wildcard character  assign a wild char to the key to be deleted in the index table.
+-> Here too we can have duplicates, so to avoid those we do the compaction process and delete unwanted data.
+
+Searching for a key in chucks is expensive as it is on disk and we will have to search each row.
+
+Bloom Filter : It is a non diterministic Data Structure. It is probabilistic Data structure.
+
+It will definately tell us if a key is not there in the chunk but can't say for sure if it is present.
+
+Bloom Filter : It have only function, it tells you if a key exists or not. False means does not exist. True means may exist.

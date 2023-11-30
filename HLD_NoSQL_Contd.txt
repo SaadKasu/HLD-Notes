@@ -1,0 +1,62 @@
+Steps to create a NoSQL DB for sharding
+
+1.) Create a sharding key
+2.) Denormalize the data, When we create a RDBMS we normalize the data to have minimum redundency but when we have to shard we might have to split the data and have 2 copies of same row as this data needs to be stored on 2 machines.
+
+Denormalizations should be done such that most frequent queries don't need to talk to other shards.
+
+3.) Fault Tolerant - If fault happens/machine dies, entire setup work due to master slave as we have replicas of master.
+	- In master slave all write requests come to master and read can come to any slave or master.
+	- Zookeper keeps a check on master and if master does not respond, the zookeeper also keeps a check on the slaves and elects a new master.
+	- All app servers have DB client and that DB client is created using a zookeeper
+	so when master changes the DB client because of zookeeper will get to know about the chage.
+
+4.) App Servers that can handle request
+
+Now lets say we have master slave with 2 slaves in each shard. Now if one slave dies we might have under replicated system. One solution can be to manually add a server each time a server dies. 
+
+But if we want to avoid the manual process. The DBs provide a few ways  that answer these questions:
+
+How do you avoid under replication ?
+How to avoid degraded performance when a master dies even for a few seconds a few write requests might fail ?
+
+Now when we hash the machines in the circular fashion as seen in the hash question in consistent hashing. Instead of just storing the data of the hash values that lie between prvious and this machine on the circle on the machine
+
+We will also store the data that should belong to data on previous machine so that each machine will have 2 copies and if 1 machine goes down the data is not lost.
+
+This appraoch better than using replica machines as machines are used efficiently.
+
+Replication_Level - Hom many copies of my info I need. Higher the Replication_Level more copies are avilable.
+
+If we need 2 replications in the above case in line 23. We can store the data of this machine on the next machine in the circle and the machine after that too.
+
+In this way we increase the replication levels and each machine is master initself.
+
+But in this case redundency is high and has its use cases.
+
+Now in our case lets say the Replication_Level is 3 now we can also read from the 3 machines so many DBs allow us to configure a variable where we can choose how many machines the data should be read to mark the read as successful. 
+
+SO if the varaible is = 1 then reading from 1 machine is fine.
+If vartiable is = 2 then atleast 2 machines are to be read from.
+and so on.
+
+Similarly if the Replication_Level = 3 and we want to write to the machines and need 2 other replicas. In this case 2 we can configure a variable where we can decide how many machines the data is to be written to before the write is successful.
+
+SO if the varaible is = 1 then writing to 1 machine is fine.
+If vartiable is = 2 then atleast 2 machines are to be written to.
+and so on.
+
+In this case if the write varaible is < Replication_Level then over time the other machines talk to each other using gossif protocol to be consistent.
+
+These variables are provided by DBs and the DBs manage the write and read internally without us having to worry about it.
+
+Read = 1 Write = 1 Highly Available, Low Consistency
+Read = 3 Write = 1 Highly Consistent, Low Availablity
+Read  = 1 Write  = 3 Low Availablity, High Consistency
+
+R + W >= X - Then system will be Highly Consistent
+
+Casandra, HBase have tunable consistency. And Tunability depends on application.
+Read and Write are not from the same machines neccisarily.
+
+Gossip Protocol - It exchanges last few minutes of transaction between the machines. And after exchange the machine checks which entries are missing and add the missing entries.

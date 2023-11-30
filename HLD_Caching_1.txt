@@ -1,0 +1,71 @@
+Currently we have established that we have the LB and after the load balancer we have app servers that serve the request and we can either have a seperate layer for sotrage or have storage in the app server.
+
+Adavantage of storage in app server :
+1.) Access times is less
+Disadvantage :
+1.) Same data could be stored in multiple machines which could cause waste of storage. In case of stateless LB
+2,) Can be less secure
+3.) Keeping all machines consistent could be difficult.
+4.) Storage will be affected if the code if affected / need to be updated and vice versa.
+
+Due to this application system and storage systems are different.
+
+When we want to update a code we can tell LB that we need to remove the mcahine from the LB and add it later. 
+
+LBs has some APIs exposed for this. And 1 machine can be updated at a time so there are still machines that serve the request.
+
+Updated code should be compatible with the code already working so it does not break the machines still running previous version.
+
+Optimize the slowest step.
+
+If a website is running in US and we try to access it from India. It will take a lot of time to send even a small data over such a large region so what can we do to optimize is keep a copy of this data close to the user.
+
+Caching - Device a mechanism to identify if the information close to you is still relevant and how to store more and more info close to you.
+
+Browser also has a level of caching and sotres some information like ip of previous accessed website.
+
+SImilarly when we access a website and access it again after a few minutes we can see that initially it is slow to load but the second time it is faster because the browser caches some data.
+
+Another type of caching is CDN (Content Delivery Network) : Examples Akamai, Fastly,Cloudflare.
+
+Instagram is images and every time you have to go to us and want to fetch it from NY each time it will be too slow. So in this case if we can store copy of the images close to a user it will be faster.
+
+CDNs are companies that have a lot of machines (data centers) across the world and thier job is to store copies of the data (Any file like JS, Text, Image, Video).
+
+And these CDNs return a uid corresponding to each file and if someone asks for that id they will return the file,.
+
+When we load the page first time sometimes we can see the skeleton first before the image as images are fetched async from the CDN. When we need the image we send an anycast and the first machine from the CDN company that acknowledges the request sends the requst. At first we fetch the html from US and then in step 2 images are fetched from CDN.
+
+CDN generally don't have authentication.
+
+Images are not stores in MySQL and we use object store to store images.
+
+So what will the company do is when it has an image it first stores the data in its own DB and object store then it will give the data to cdn and cdn will return a url for that data which can be used by the company to where ever the data is needed instead of sending the data itself.
+
+Vidoes can also be stored on these CDNs and they are generally broken down in chunks as we don't need a complete video at one time. In this case when we acess the website, the website return us metadata of the video and tells us how many chunks are there and start and end time of each chunck so we can retreive the info one after the other.  Each chunk is a seperate video.
+
+CDNs also can not duplicate data to each data center everytime a data is created. If the data is requested in a region for the first time it might take time as the CDN will have to load the data from its central server but after that the next requests might be faster.
+
+Problems with caching :
+- Size is a problem
+- What to do when cache is full ?
+- How to maintain consistency ?
+
+
+What to do when cache is full ?
+Eviction - kick out a entry to make room for the new query if the cache is full.
+LRU can be used.
+
+
+How to Invalidate the data in the cache ?
+
+-> If you are ok with having a data that is a little out of date then you can use a TTL logic to invalidate the cache. TTl means Time to Live and it is a duration after which the data should be updated. Eviction will happen after TTl.
+
+-> If we don't know if the data is changing frequently then :
+1.) Write Through Cache : Ok if it is slow but we want the cache and DB to always be in sync. In this case we first got to cache and update the data then we go to the DB and update the data there. If at anypoint there is a failure we will roll back the transaction.
+	-> Here the write is slow but it is reliable. As cache is always updated when DB is updated.
+2.) Write Back Cache : 
+	Here we update the cache but don't update the data in db at the same time but update the data in DB async. So this is faster as the write is happening in the DB at a later time but the problem here is if before the async job the cache dies or is reset the data is lost. Useful in case of analytic work, shouldn't be used for data sensitive applications.
+3.) Write Aroung Cache :
+		Here the app server writes to the DB directly skipping the cache and then it is the responsibility of the cache to keep itself updated with the DB using TTl or any other form or data consistency mechanism.
+

@@ -1,0 +1,73 @@
+Problem Statement : 
+
+1. You are downloading uploading files in case of file failure you should not have to start from scratch this is handling data gracefully. 
+Think of torrent and how we don't have to download from 0 even if we shut down the sytem.
+
+2.) How to implement this ?
+
+Now what we do in these cases is we divide the file in chunks.
+
+Now lets say if we have a file. When we upload the file the file is broken into chunks and the metadata of the chunks is in the torrent file. Now when we begin the download, we use the metadata to get the chunk info, like size, no of chunks, etc.
+
+The seed users are in the website where the torrent belongs not in the metadata.
+
+Things we learned :
+	Break file into chunks.
+	
+What is the average size of the chunk ?
+
+Chunk can not be too small as size of chunk metadata might become greater than file size.
+
+Chunks can not be too large as failure can cause waste of resources. 
+
+OS stores data as blocks and there is a system block size. So when we store the chunks in blocks there is no wasteage of blocks
+
+
+When client downloads something from another machine the system sends bytes. How can we be sure the bytes received are same and in the same order.
+
+Checksum is a data integrity functionality that uses a hash function to geenrate a number based on bytes and thier order and we can send the file and generate the checksum at user and compare with checksum send by system and if hash at user does not match with system hash then there was something wrong.
+
+SHA and MD5 hashs are standard hash to calculate checksum
+
+
+HDFS - Hadoop Distributed File System.
+
+Uses the normal Architecteutre to store data.
+
+Clinet - Load Balancer - App Server - Data server 
+
+Now it is possible that files are very large and need to be broken down into chunks and stored in seperate machines.
+
+Now HDFS has a name node server which stores info which file chunk is on which database server.
+
+The App server connects to the name node server and get info of chunk for a file and return this to app server and app servers downloads file from the correct DB and return to client.
+
+NameNode server also takes care of replication and stores replication data too.
+
+In case of a machine goes down NameNode moves the data to different machines to prevent under Replication.
+
+Google File Storage is very similar to HDFS.
+
+Problem Statement :
+
+Given a persons location : Latitude and longitude
+Given this location find nearest X number of restaurants.
+
+
+Soln :
+	Divide the map into grids. 
+	Each user is in a grid. 
+	Each restaurant in a grid.
+	
+	Start with the grid user is in if X restaurants are found great else increase grid to the neighbouring grids and do this till we find atleast X restaurants.
+	
+	problem is :
+	Some grids can have a lot of restaurants some none and so on.
+	
+	To improve this use variable size grids.
+	Start with a grid of the size of the world. Divide the grid till each grid has X units. 
+	This will give us grids of variable size.
+	
+Quad tress are important concept where places are involved, facebook places, google maps, uber. etc.
+
+Quad trees are a DSA concept.

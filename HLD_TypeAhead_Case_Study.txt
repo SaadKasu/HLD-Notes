@@ -1,0 +1,77 @@
+Google TYPEAHEAD Case Study 
+
+4 sections of HLD :
+
+Start with the MVP (Minimum Viable Product)
+
+1. ) Understand the requirements :
+	a.) Functional Requirements : what are the features ? 
+	b.) Non Functional Requirements : Consistency or Reliability/ Latency
+	
+2. ) Estimation of Scale :
+ -> Do I need sharding ?
+ -> System is read heavy or write heavy or both.
+ -> Capacity Estimation - How many machines do I need ? / How many LBs may I need.
+ 
+3.) Find key use cases, key APIs the outside system will call ?
+
+4.) Design 
+
+
+What is typeahead ? 
+-> When we start typing the auto completed sugssion words are type ahead.
+
+Type ahead is not about searching but just how to display suggestions.
+
+
+Step 1 :
+Requirements for MVP : 
+	1. ) How many max suggestion ? 5 at max
+	2. ) How to choose which suggestions are shown ? choose most frequent  
+	3. ) Personlize not needed in MVP
+	4. ) Atleast 3 letters before suggestions 
+	5. ) Should be case insensitve.
+	6. ) Highly Available - Consistency is not a big problem. Non Functional
+	7. ) Latency is very low - As typing is fast the Latency is very low. Non Functional
+	
+Step 2 :
+
+	-> Do we need Sharding ? what are we storing is a search terms along with thier frequency ?
+	-> Now to know, how many words we have to store  depends on how much traffic we get ? Ask the interviewers the scale of the problem. 
+	-> To estimate the scale, how many terms are searched for first time they will create new record with count 1. The rest will only increment the count.
+	-> You can ask interviewer the how many new requests are there each day. 
+	-> When building a software provision it for the next 10 years.
+	-> Now lets say 1 new request is 100 bytes and asume 10% of the system quries are new so when we get 8 billion requests a day and if we provision for 10 years. then we need to storage for 100 * 8 * .1 * 366 * 20 this is approx 300 TB.
+	-> This is why we say yes to sharding.
+	
+	
+	->  Read or Write Heavy  :
+	Read is every keystore we enter after the 2nd char
+	Write is when the search term is completed.
+	Now overtime when our system gets efficient when we type the 3rd char the user gets what he is looking for so for each read there is a write. 
+	 - > So in this case both read and write is heavy but it is difficult to manage such a system where read and write is heavy.
+	To solve this we can eitehr cache the data to reduce read or make system less consistent to make it write less.
+	
+	-> How many machines is needed ?  Depends on the Queries per second. Bottleneck can be CPU, Memory or network. In different cases different componenets of the APP server can be the bottle neck. The bottleneck defines the Queries per second and QPS defines the machines needed.
+	
+Step 3 : 
+	APIs most frequently used :
+	
+	1. )  getTopSuggestions :
+		This is the top used API and should be with very low latency and here we use Tries and at each node store top 5 keywords.
+	2. )  updateFrequecy : This can be done async as user should not have to deal 	with the delay. Update the data periodically if the frequency threshold surpasses a fixed value.
+	
+	If you want to use Cache for most frequently used requests. remove the lest frequent search terms.
+	
+	Sampling is taking random data from a large set then the sample refplects the trend of the actual data without going thorugh each data.
+	
+	Now what else we can do is using sampling we can say that over a lot of search terms if instead of updating each search term in the trie if we update only for 1% of the terms then the search terms will reflect the trends.
+	
+Note : Sync is real time and we need to wait for result of each query. Here the response is part of the time taken to serve the requst. This is a blocking request. Executed in foreground. If the request fails the user knows
+Async is when the query is send but don't wait for the result. This is not blocking. Response is not part of the request time. Executed in background. This is called best effort as if the failure happens the user may not know about this.
+
+
+ How to shard the data ? Such that the subtree is in 1 machine. Breack it based on alphabets afters on or after 3 letters. so we can have different sahrds like all subtrees under aaa as 1 shard, aab as another shard , aac ans another shard so on. In this way we can have 18000 shards.
+ 
+ Now lets say a case where a term was searched 500 times over a course of 2 years but another term was search for 200 times in 1 hour now based on our approach the 1st term will be given preference but we should give preference to 2nd term as it is trending.
+ To do this there is something called Time Decay. Where it is a factor > 1 and when a day passes all the orignal counts get divided by time decay factor so most recent searches are relevant. Time decay if very aggressive = 2. Typically the Time dacay factor is 1.05 or 1.1 . This is done async by a job.

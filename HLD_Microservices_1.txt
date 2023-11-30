@@ -1,0 +1,78 @@
+A service is combination of App server, db, lb etc. That exposes APIs to serve requests.
+
+A website can be combination of services that serve sevral request. The request can be divided amongst services.
+
+What is MonoLithic Architecture ?
+	-> If entire website was built in a way that client talks to LB and LB to app server and the app server has code for all functionality supported by the website is a monolithic architecture.
+	-> If front end runs on JS and Backend runs on Java and Still if these files are part of same project then too it is MonoLithic.
+	-> In Monolith we can have different files like models.java, controllers.java and view.html part of the same parent directory. And to run the project we have to compile all the sub files.
+	
+	Problems with Monolithic Architecture :
+		-> As code becomes large it becomes difficult for new engineers to to understand the code base. Contibution becomes harder.
+		-> All minor changes need compilation of complete project.
+		-> Build time becomes slower.
+		-> If one part of the code is too slow. The resource of the app server will be used up there.
+		
+-> Queue to move to microservice or service based architecture is if development on monolithic is becoming slower.
+
+-> If we break the project into 2 or more projects and each of them can be compiled without the other and they are deployed on different machines Then it is a service.
+
+
+API Gateway :
+	Client will do DNS lookup and get the ip address of Load balancer.
+	Just after the LB we have a machine that is called the API Gateway machine.
+	API Gateway has logic to redirect to correct service and it has other logic that deals with Authentication, Rate Limiter, encryption and decription.
+	
+Difference between service and microservice :
+	-> Microservice can not share DBs
+	-> Service make syncronous calls to other service. Microservice can make sync and async calls.
+
+Advantage of Microservice :
+	-> Seperation of concerns :
+		-> Can use differnent tech stacks for different use cases 
+		-> If one service is used more we can scale on;y for that service without wasting cost on other service.
+		-> Deploying code is easier as only 1 service will be affected.
+		-> Problems with once service for the most part does not affect another service.
+	
+Disadvantage of Microservice :	
+	-> More Layers : More Latency ()
+		-> SInce services are seperate. Call between services uses network calls and increase latency than in monolithic
+	-> More Expensive :
+		-> Need seperate machines (App server, DBs, LBs?) for all seperate microservices
+	-> Tracing Failures is Harder :
+		-> In monolith all code is on one machine so debugging is easier opposed to microservice in which we need to check seperate machines for the errors.
+	-> Data inconsistencies : 
+		Can be there if there are 2 or more services affect same type of data.
+	
+Things to do improve these problems :
+	-> How to reduce latency ? Event Driven Architecture
+	-> Make is easier to debug issues accross services ? : Observibility
+	-> How Prevent Data inconsistencies ? : Distributed Transactions using SAGA pattern.
+	-> How to Handel "Service Down" gracefully (impact of failure of 1 service on another)? Circuit Breaker Pattern
+	
+	
+Observibility :
+	Includes :
+		-> Detection : Alarm/ Notification that something has gone wrong.
+		-> If something has gone wrong. Look at logs or metrics and judge what has gone wrong or dignose. Then fix it and verify after the fix.
+		-> Metrics
+		-> Alarm
+		
+	Trace it in case of services ?
+		-> We need a common id to trace a request through out all the services and distinguish a request from other.
+		-> And we print logs at each service so that if we don't have logs at a service than that service is the problem.
+		-> Each service stores the logs in a file and we need a process to copy these logs to a central repo.
+		-> Logstash does this and timely moves the logs from files to central system.
+		
+	Observibility also includes metrics :
+		-> What if we have dashboard(Graphs) for each service that shows cpu, mem, netwrokd utilization at each time. This will make it easier to debug as higher utilization will mean more chance of filure.
+		-> How to get this Graph ? What if we have DB that stores CPU utilization value persecond and same for mem and latency. If we have value v/s time we can plot a graph.
+		-> Time series DB (The db that will store the above values) should be quick to aggregate as it is a freqeunt operation.
+		-> We can also aggreagate utilizations of different services to show dashboard of a complete system.
+		
+How to design a time series DB ?
+		
+	Alarms :
+		Based on metrics we can configure alarms and then we can send messages/ emails if usage is higher than a threshold.
+		
+2:15:00

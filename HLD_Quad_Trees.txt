@@ -1,0 +1,94 @@
+Quad tree :
+
+Equal size grids are not ideal as some cells will be highly populated and some would be not populated at all.
+
+If cells are too large populated areas will have too many locations and queries will be slow.
+
+If we divide the grid into very small cells. So in case of sparsely populated locations there will be no locationss in the cell and so queries will be very high.
+
+We need variable size grid cells due to these reasons.
+
+For QUAD trees :
+
+1.) Start with the world as 1 grid cell. 
+
+2.) Keep a limit of some no. of places that if a grid has places more than that number than divide the grid cell.
+
+3.) Divide the cell into 4 pieces (why 4 pieces ?) 4 pieces because the world map in 2d is a rectangle and the best way to divide a rectangle into smaller rectangles is divide it along its length and bredth so that is why 4.
+
+4.) Do this recurssively till each cell has <= no. of those locations.
+
+It is called a quad tree because we start with 1 head and if condition is met the head is divided into(has 4 childer) 4 child nodes and then each of those are checked and if condition is matched add 4 child nodes to that node. If you imagine this structure this will be like a head node with 4 children at max and each of thosse nodes can have 4 nodes so as Binary Trees have 2 nodes at max, quad trees have 4 nodes at max.
+
+Only leaf nodes are the grids rest are for calculation of grids.
+
+User request to find nearby places :
+
+1.) Get the user lat and longitude. Write a function to get cell id from lat to longitude.
+2.) Then return the list of nearby placess the user wants.
+3.) SOrt by nearest and return tthe locations.
+
+
+Q1,) What is tye of locaitons are no enough in the cell.
+Q2.) What if the user iss at boundry of 2 cells what about the locaitons in the adjacent cells ?
+
+To optimize for these 2 problems :
+1.) Get the user lat and longitude. Write a function to get cell id from lat to longitude.
+2.) Instead of just getting all locations of this cell return all locations in a few adjacent cells too.
+3.) Then return the list of nearby placess the user wants.
+4.) SOrt by nearest and return tthe locations.
+
+
+Now for 2 algos :
+1.) How to get cell number using the latitude and longitude ?
+
+- We have taken the world as a rectangle. The rectangle has 4 coordinates, let say
+0,0
+0,100
+100,0 and
+100,100
+
+Now when we divide the rectangle into 4 equal cells the rectangle will be divided at
+
+0,50
+50,0
+50,100
+100,50
+and the mid point will be 50,50;
+
+SO in this way what we can do is when we have a root node and lat and longitude based on the 4 coordinates of the rectangle we can go to one of the 4 nodes.
+
+Like if our user was at 36, 40. In this case we will go to the root, from root we will go to the cell with coordinates.
+
+0,50
+50,50
+50,0 and
+50,50
+
+again lets say this cell is divided into 4 cells with mid pointss
+
+0,25
+25,0
+50,25
+25,50
+
+and the mid point is 25,25
+
+Now the user will go to the cell which has 4 coordinates
+
+25,50
+25,25
+50,50
+50,25
+
+THis way we can find cell id in Log (base 4)N. Where N is the depth of the leaf node where the usser belongs to.
+
+At DB level we can store each node, its parent and children.  So we start with root and do the traversal at each level. and query DB with child nodes if needed.
+
+
+In case of delete or add new location:
+1.) For add location : we will check if cell locations are > limit if yes divide the cell into 4 sub cells and allocate the locations in the cell based on where they would lie in the 4 sub cells.
+
+2.) In case of delete location : we need to check if cell and its 3 siblings have less than threshold. If yes combine the cells into 1.
+
+

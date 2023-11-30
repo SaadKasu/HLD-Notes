@@ -1,0 +1,83 @@
+Design Hotstar :
+
+Steps to Design :
+	-> MVP
+	-> Estimation of Scale
+	-> API design
+	-> Final Design
+	
+MVP :	
+	-> Need UI to allow some users to upload files.
+	-> Play Movies/TV Shows specific to locations.
+		-> List Movies based on Locations
+		-> Play Movies :
+			-> Different Resolution based on inet connection
+			-> Reduce Buffering
+			-> Needs to be Lightweight on client machine
+			-> Store how much of the movie is watched.
+			-> Subtitles and Audio
+	-> Live Streaming
+		-> Lag is Less
+		-> Go back in Live streaming.
+	
+	
+Side track - Images :
+				-> A image is a matrix (2d) with values of RGB(0 - 255). Back and White images have only 0 and 1 values. 
+				JPEG/ PNG are compressions that are used to reduce the size of on image.
+				Higher the size of the matrix the more pixels and more resolutions.
+				
+			Videos :
+				We have a set of images. And for videos We start with the first image in the sequnce and for the next frame we use something called delta that stores the difference between this image and the next image in the frame so it becomes less in size as we can create the next image from this image.
+
+Estimation of Scale :
+	-> You need to have tables (MySQL) like  user, user_data, user_movies, movies(metadata of movies), actors
+	-> Large Files (s3 or HDFS) : Actual video files, thumbnails, Trailer
+	
+	Now for movies table :
+		An industry like bollywood releases 2-3 moveis per week and 52 weeks in a year and if we consider movies from the last 50 years are relevant and there are some 10 industries like bollywood so you get a number like 
+		3*52*50*10 - 80000 movies. Same for TV series and same for Web series so we get approx 300k movies/tvseries in the world. 
+		Then we see that our application may get access to 1/3rd so we may have to store metadata for roughly 100k records in the movie table.
+		- Each movie then has actors, name, id, etc. Still we will be able to store this data on one machine without sharding.
+		
+	For the User Table :
+		- Need watchList, movieTimestamps, attributes.
+		- Approx 60 million users and each user can have 2KB of data Then we get 120GB of data.
+		- Since the data is read heavy and data is small we can use SQL database.
+		
+		
+Use Cases :
+	-> Given a movie, play it on browser/app.
+	-> List of Movies wathced/ watching.
+	-> Searching for movies/actors
+	
+	1.) Given a movie play it :
+		-> First need metadata about the movie name, audio supported, subtitles languages, Qualities,desciption
+		-> List of chunks are needed with CDN url, quality, start_end_time stamp and maybe the next chunk to pre fetch.
+	Questions :
+		1.) How to display seek images ? At the start of the movie get all the thumbnails for each chunk and so that we don't need the complete chunk just these highly compressed images.
+		2.) Browser has 1gb of data but movie is 10gb how to watch a complete movie ? Delete the previous chunks 
+		3.) How does resolution adapt and what parameters it depends on ? On internet speed, user plan device resoulation. We can check how long doess it take to download a chunk and if it is sustainable if not lower the quality else maintain quality.
+		
+		How to check the internet speed ? Not only hotstar but all systems use a back end ping and measure the time it takes to send and receive the ping and estimate the speed of the internet connection and then we can adjust resolution of the video.
+		
+		
+Live Streaming :
+	-> Types of Live Streaming :
+		1.) Zoom/Google Meet : Instant but can't go back, delay is very low.
+		2.) Hotstar, Fancode : Delay is around 2-3 mins.
+		
+		Now Hotstar also uses chunk, CDN functionality for live streams too.
+		
+		How to create a chunk size is not so big  that delay is too much or not so small that metadata is more than the data ?
+			-> Generally less than 1 minute is prefered for live streams.
+		
+	SO COmplete Process :
+		-> Chunk is recorded of 1 min -> Chunk is uploaded to server -> Chunk is converted to different resolutions async and simultaneously it is added to our storage - > Then these chunks or different resoulation are uploaded to CDN and new entries are added to DB -> User keeps pinging the DB to chek if there is a new chunk if yes -> User gets chunk url and access the CDN and receives Chunk .
+
+		This leads to 2-3 mins of delay.
+		
+		From CDN point of view when we receive files we uplocad them to the region where the requests are more and anycast will direct the request to those machines and simultaneously upload to different machines.
+		
+		Google Meet/Zoom - Does not chunk the data it is a pub sub model. The users of the meeting subscribe to a single machine to which all users of the call are subscribed and publish data too. There is no data store, no CDN etc. So delay is very low. All users on the call will see the data published by other users in the call.
+	
+	

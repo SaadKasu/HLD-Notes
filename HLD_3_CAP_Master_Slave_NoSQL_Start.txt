@@ -1,0 +1,92 @@
+Company that makes reminders to people.
+
+Currently there is 1 person now if request increase we add one more person and add 
+a balancer.
+
+Now 2 people and they store seperate requests. Tomorrow if we get a want to check a request with A but the request is with B this is a consistency issue.
+
+COnsistency issue - Where 2 or more systems but data is not the same in both so this can cause a bad experience.
+
+A fix for this could be to copy the data between the 2 or more systems whenever a new request is received.
+
+A problem here is if in our system there is a protocol where data needs to be copied before the request can be closed. If even 1 system fails the complete request can not be handled.
+
+A fix for this could be all requests can be closed when they are received by the system without copying it but we will copy the data at a later time all together. So this helps efficiency and user experience.
+
+Now if there is a break in the communication between the 2 or more systems then either the service will not be available or the data will be inconsistent.
+
+Network Partition - you have 2 or DBs which can not talk to each other but may or may not be available on the network.
+
+
+CAP Theroem says if there is a Network Partition. You have to choose between COnsistency or Availablity. You can not have both.
+
+C - COnsistency
+A - Availablity
+P - Partition Tolerence.
+Partition is not always present so when Partition is not there we can have both COnsistency and Availablity.
+
+This issue can arise between 1 shard itself. Even if we shard the data we need a replica for fail case in that case 2 or more DBs will be there and still these issues can arise.
+
+
+PAC ELC :
+
+PAC is the CAP theorem only.
+
+ELC - If there is no network partition I can be both consistent and available BUT you still have to choose between latency and consistency. 
+
+E - Else
+L - Latency
+C - COnsistency
+
+Either we can copy the data at the same time the request comes this will make the request slow but the system is consistent.
+Or we can take the request now but copy it to the other db later. This will make the request fast but for some time the data will be inconsistent.
+
+WHat is master slave ?
+
+Within a shard I want to have a master slave because I don't need single point of failure.
+
+Master takes the request and servers them. Slave's job is to be in sync with master.
+
+There can be more than 1 slaves.
+
+WAL - Write Ahead Logs (Logs all the write operations so we can receover the table if we loose the tables.)
+
+In slaves we dont care about read commands. We only need write operations so we can use WAL from the master to replicate the data in slaves.
+
+Slave can ask for the WALs periodically or else the Master can push a WAL log each time is created. Depends on need.
+
+1.) Inconsistent System but Vey Fast 
+Master writes the request but all slaves copy the data after some time so if the master dies in the between the results are inconsistent. Time of request is writing to only master
+
+2.) Eventually consistent but still fast.
+Master writes the data and copies it at the same time to atleast 1 more slave then return sucess. And sync other slaves async. Time of request is writing to master and 1 slave. Still fast.
+
+3.) Higly consistent system , not fast, not available
+
+Write to master and all slave at the same time. Then it becomes highly consistent but is very slow.
+
+When master goes down a slave is elected to become the master. Slave with the most recent write is the new Master.
+
+Zookeeper selects the master. 
+
+Amazon has a lot of products so if we want to distinguish the products we need a lot of product tables based on the categories and this can be close to impossible.
+
+Or you can have 1 table with all items but then queries are very slow and normalization is violated. Not very efficient.
+
+Power of indexes is joins and indexes and if we can't use them then we lose power of the RDBMS.
+
+In cases where there are too many categories/columns using RDBMS becomes difficult
+
+Now when we use sharding joins can not be done which is again a big loss.
+
+Also in real world we might have to deal with very variable data and RDBMS which limit data might not be the best option.
+
+Need for NoSQL DB - If data is split across machines, data is variable, I don't want to be restricted by standardizations. Then we need a way to store a data in NoSQL formats.
+
+Non Relational DBs - Might not have a schema
+
+SQL is a language used to work on data in RDBMS but SQL is a language and can be used in NoRDBMS.
+
+Like in Redis we store key and value pair. The value can be anything and you don't need to specifyu what datatype is the value, this is a good use case for the NoSQL.
+
+Schema is not present in NoSQL neither is relationships. It will not have a ER diagram.

@@ -1,0 +1,27 @@
+Good things :
+	Length is good should be less than a page.
+
+Bad things  :
+	Out of order, put skills lower just above eduction.
+	Experience section : Put company name first and position as a subtitle.
+	Talking about project : Emphasize on the project rather than technology :
+		Framework :
+			1. ) Talk about the problem / Context of why the project was implemented also mention which company asked for it.
+			2. ) Approach / method followed to solve the problem. In the scope of this project X no. of APIs to implement ABC. If you want to you can exphasize the technolgy but you can focus on approach how you implement the problem.
+			3. ) Results or the impact the work had, how did it solve the problem. The business impact.
+			4. )  Final point about technologies used in the project.
+			
+		Note : - You can add the project and as for bug fixes and enhancements add points to the same project and mention the enhancements as maintainence.
+		
+Work experince :
+	Add only company projects here.
+
+Projects :
+	Add only personal projects in projects serciton. Not company work.
+	Add working links to the projects if hosted somewhere.
+	
+Suggestions : 
+	Link some public profiles
+	GitHub
+	Leetcode/ GFG
+	

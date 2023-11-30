@@ -1,0 +1,77 @@
+1. ) How to build a DB that supports sharding ? 
+2.) How to make DB schema less (Fields of different sizes and also variable no. of fields)
+3. ) Can't guarentee ACID, may guarantee some of the ACID but not all, like RDBMS
+
+Types of NoSQL :
+1. ) Store as Key-Value (Redis, DynamoDB). 
+Simplest form of storage
+2. ) Column Family	(Cassandra, HBase). Like key - value. Somewhere between tables and key value. 
+Here there is a key but the values are divided in columns and each column is a table with only 1 column. And in the column each row is a different attribute. 
+26 mins in Lecture. 
+Ordered by most recent. 
+Each column is called a column family. 
+Key can still be what is used in key-value pair but value is divided in column family. 
+Column family is the only Schema here.
+Depending on the use case it can be faster than key value pair.
+This could also be thought of as a key-value pair with a key and the key value pair might be sorted too.
+In this case value for 1 key should be on 1 machine and should not be greater than size of 1 machine.
+3.) Document DB (MongoDB, ElasticSearch). Stores data as JSON. Storing JSON in DB is very easy but optimizing it for queries and searching is more difficult. In Document DB each JSON is like a new file. So DB does not know what is inside JSON that is why it is difficult to optimize for search and sort. For DB each JSON is different and it is upto the developer what to store in s JSON to help for searching and sorting.
+4.) Graph DB
+
+JSON is a key value pair and the value can also be another JSON.
+
+json example : {"keys": {"Key": value, "key2": value2}}
+
+What is XML and What is JSON ?
+
+
+For a NoSQL DB we need to decide a sharding key and all values reciding within a sharding key should recide in a single machine.
+
+How to choose sharding key ?
+1.) List most frequest use cases 
+2.) Sharding Key has to be an entity. Which entity makes sure that all my quesries come from 1 machine. If no such entity exists chosse the entity which has data across lowest no. of machines.
+
+Like in case of UBER we can have driver_id, user_id and location_id are very important. 
+Now if we have APIs like 
+bookTaxi(driver_id, user_id)
+trackTaxi(user_id)
+registerTaxi(driver_id, location)
+acceptBooking(driver_id,user_id,booking_id)
+
+In this case if we shard by locaiton it makes most sense as user and driver will always be in same machine so it will be easier to shard by lcoation.
+
+Sharding by user or driver id, it can store drivers and users from different locations in one machine now if we want to search nearby taxis we will have to search each machine which is not good. 
+No need to store all data of user or even driver in the same shard as those can be used as an extra process so that data in one shard does not get overburdended and multiple shard access for one request is not needed.
+
+We can also store some user data in cache if we need fast access for some users.
+
+Timestamp based sharding is not efficient as one shard can get all the load and others get little to no load.
+
+Latency for inactive users is high because we need to check each shard for a user data.
+
+For Slack
+
+sendMsg(channel_id, message, sender_id)
+getChannel(user_id)
+getChannelMessage(user_id,channel_id)
+
+Here actually org_id is a good choice as data replication and latency is avoided. Considering all info for an org fits on a shard. If it does not fit in one shard then rethink the shard.
+
+When sharding think if a query for that entity might need to access seperate shards if yes then it is not a good shard_key.
+
+approach:
+	find all frequent apis
+	then decide the sharding key
+	
+	
+Why we still use RDBMS if they can't be sharded and mostly today all systems are distributed ?
+
+RDBMS is mature 
+RDBMS provides ACID which is needed.
+RDBMS solves for a lot of redundency due to normalizations.
+
+Unless sharding ( System is at limit) is needed use RDBMS.
+
+Partitioning is in single machine where data is divided for faster acess as search space becomes smaller in very large machines.
+
+Sharding is accross machines.

@@ -1,0 +1,95 @@
+Search on google.
+	-> Shows webpages with matching keywords
+
+Problem statement :
+- Want to implement a search where we can find posts with text we have searched for.
+
+
+Q1.) Storing post in MySQL DB and searching in that is a good solution ?
+-> No becasue these searches are too expensive as they do full scan.
+
+What we do here is ?
+
+Inverse Index - We create a hashmap with words as the key and an array which stores which post does that word occur in as the value. We can also store the index of where the word occured in the array so that we can search for statements and not just words.
+
+This is a use case for full text search : SQL and NOSQL DBs don't efficiently search for these posts.
+
+Elastic Search and Apache Solr are both optimized for full text search. 
+
+Apache Lucene can be thought as a large library that takes documents and makes the maps to optimize full text search.
+
+ElasticSearch and Apache Solr are wrappers on top of Lucene that try to optimize other aspects of a query.
+
+Nowin this case if we want to search for "Run Marathon" I would want "Ran a marathon" to match with such statements so what to do here ?
+
+
+Steps implemented in Apache Lucene:
+
+1.) Word Elimination :
+	Words that don't matter like a, an, the, of ,  on , by
+	Remove pronouns, prepositions, speacial characters etc.
+
+2.) Tokenization :
+	What is left, you break down into words. Now you have list of words.
+	
+3.) Lemmatisation : 
+	Reduce every word to its root word. Like ran will be reduced to run. Best will be reduced to good. This can be done using the dictionary. 
+	Lemmatisation is applied to every entry in the list of words left after Tokenization.
+	
+4.) Stop Words :
+	Abusive words, words yoiu don't want users to search using can be removed.
+	Remove these words from the list after Lemmatisation. You can have a list of stop words.
+	
+5. ) Inverse Index :
+	Insert words into the map array combination
+
+
+ElasticSearch is a DocumentDB, when you store a entry in ES, you can specify which value needs to be inverse indexed.	We can create inverse index on different keys of JSON. to create a new inverse Index we can use PUT command in ES.
+
+Use Cases for Full Text Search :
+
+-- Applicant Tracking System : Search Reumes based on key words.
+
+-- Search Logs in case of failure from distributed systems.
+
+ELK - ElasticSearch Kibana - When we have distributed systems and we need logs from different machines we use ELK. This stores logs from distributed systems on one machine and allows full text search on the logs.
+
+Elasticsearch, Logstash, and Kibana - Here Kibana is the UI that makes searching, writing query for logs convinient. Logstash is where logs are stored from distributed system.
+
+-- Global search in Salesforce.
+
+We want to build a Highly available system, which is read heavy and falut tolerant
+
+Terminologies :
+Document : JSON with content, id, ect.
+Index : Collection of documents for which you have created a inverse index on is called an index.
+Node - Machine's used in ElasticSearch DB
+
+	
+How to shard the data in case of ElasticSearch ?
+
+Sharding key :
+Index - great, but if we have only 1 index then still we might not be able to store all data on one machine.
+Document_id : Not great, We will have to go to diffeent machines for each query
+Key words: Still not great. Will have to go to multiple machines.
+
+ES shards by document_id;
+
+1. ) When creating ES we need to decide the no. of shards and no. of replicas at the start.
+
+It is difficult to change no.of shard in ES as downtime is high.
+
+At the start of the DB creation we can specify lets say 10 shards but we have less data so 10 shards can fit on 3 macines so we will create 10 shards but store them on 3 machines (maybe using VMs) and later if data increases we can add machines and just move the shards instead of increaing the shards.
+
+In this case if create request comes. it will hash based on document id and send the data to the appropriate shard and from shard to its replica
+
+Now for a read request comes. the request needs to go to each shard so we send parallel request to each machine that contains different shard. and process the request.
+
+ES can also return data based on Regular expression match and the results can be sorted by the rating of match. So if you search for a statement "Saad Kasu" and if the document matches both words next to each other then score is 1.0. If the words are there but are far then score is 0.8 and only one word is there then score is 0.5 and so on.
+
+Fuzzy Search is when you provide a statement and you want to allow for spelling corrections or mis phrases Then we can use fuzzy search.
+
+Problem with ES :
+
+1. ) Start ES cluster building indexes for 1st time is a slow process.
+2. )  Write heavy use cases are not suitable in ES.

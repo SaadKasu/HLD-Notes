@@ -1,0 +1,151 @@
+How are applications designed on the mot basic level ?
+
+-> Client - Server Architecture 
+
+Client is a Browser
+Server is the Application
+
+- > Peer to Peer Architecture
+-> torrent
+
+In client - server architecture 
+
+-> THe client will send a request to LB which will send the request to App servers.
+
+When we increase the number of requests we can increase servers and we will need to increse DB to avoid bottleneck. 
+
+Now if we increase DB we can have master slave config.
+
+Now if master goes down we need to elect new master - > This process is called Leader Election.
+
+This is a highly available scenario. There can be consistency issue in this case.
+
+Problem 1. ) How to elect a new Master ?
+Problem 2. ) How to deal with the consistency problem ? How does the app server know which DB is the master ?
+
+To deal with problem 2 we can have a configuration server which stores the Master DB info and if a master goes down we will change the server info there. Problem with this, it is SPOF.
+
+
+Zookeeper is a centralized config management system that also helps us with leader election.
+
+Zookeeper stores different sets of folders. Zookeeper uses simple text file to store configs, etc.
+
+Zookeeper nodes/folders are called ZKnodes. 
+
+The ZKnode has config node amongst other nodes.
+
+There are 2 type of ZKnodes.  1 is Ephmereal - The data will be deleted
+							  2. is Persistent - Durable data.
+							  
+Path of the ZKnode storing leader is master and it is ephmereal node.
+							  
+How does zookeper help with leader election ?
+
+When the application comes up there is no leader so Zookeeper master node is set to null.
+And all DBs send a request to the zookeper asking to be made the leader.
+
+There can be many algos to decide the leader. But most common is FCFS.
+Once the leader is selected the Master node is updated in zookeper.
+
+Now how will Zookeeper know the master is active ?
+Using heartbeat (from DB server to ZKnode)
+
+Now if the Zknode does not receive any hearbeat a new leader is elected.
+
+How will DBs know a new master needs to be elected ?
+The DBs will tell the ZKnode that when the value in the leader is null contact the DB servers. This is basically a pub-sub model called Watch. The zookeeper will send a looking message which means the zookeeper is looking for a new leader.
+
+Watch list a list which contains all server names that are subsribed to the zookeeper for leader selection or any other pub sub use case.
+
+Zookeeper is a cluster and not a machine so if it goes down we have other zookeepers to take care of it.
+
+
+Zookeeper architecture :
+
+
+How zookeeper is integrated with our application ?
+1.) When any node(App server, DB server) comes up, it subscribes to zookeper instance.
+
+How does zookeper cluster works ?
+-> CLuster is used to provide H.A.. The cluster of zookper nodes is known as Ensemble.
+
+Zookeeper nodes in a cluster uses Paxos algo to stay in sync with each other.
+
+Quorum says that for any update all members of the quorum must act. This means that majority nodes should acknowledge when an update happens. 
+
+In this way consistency problem is avoided. If majority of nodes have same value then that value is prefered.
+
+In zookeeper cluster. The update operation goes to the master in the cluster.
+Now for Quorum, after update the master will send the update to majority of nodes (total_nodes + 1)/2. and this update should we done by each member of the qurom. If the update is not acknowledged by the quorum it will be reverted.
+
+When a master node is selected in zookeper. THe master too selects a quorum (set of majority nodes) and update should be done on each node.
+
+The nodes not part of the quorum will provide a backup (standby nodes).
+
+Each node in cluster has /leader node in path and it will redirect any update to the master. After updating the data master will propogate the update to other members of Quorum and after update they will acknowledge the master that the update has been completed.
+
+Read request can go to all memebrs of Quorum to keep zookeeper leader less busy.
+
+ZAB - Zookeeper Atomic Broadcast. It is the update process algorithm of the quorum members.
+
+If a Zookeeper node goes down it will add a standby node to the quorum.
+
+
+Kafka :
+
+When an order is placed in ecommerce website there are other things apart from just creatign an order like send am email, update inventory, update analytics, etc.
+
+Now we have to do all this things but if we make client wait for a response it is a bad experience.
+
+NOTE : ANY API YOU RIGHT SHOULD RESPOND WITHIN 200ms. HUMANS WAIT FOR 2s FOR ANY OPERATION.
+
+to avaoid a bad experience we need to do a lot of these operations Async.
+
+Now when the order is placed, what is done is the order is created in DB and the order is added to a message queue. This queue is used for async processing. 
+
+We don't want each order to access DB every second. So we can club the request in queue and then send async.
+
+
+Message Queue : It is First in First out.
+We use message queue over seperate threads because :
+We use a message queue because the server might be loaded if we use seperate threads on the same app server.
+Also there is no way to rerun a operation if it fials on threads.
+
+
+How the queue works is :
+
+-> Order is created 
+-> Order Message is added to a message queue.
+-> Seperate app server with seperate resources picks up the messages in the queue async.
+-> Unless we delete the message in the queue the message will be present in the queue and we can replay them if there is a failure.
+
+Parts of a Queue :
+Producers : Will push the messages in the queue
+Consumers : Will pick up the message and perform the action
+
+
+Based on how information is read from the queue a queue is push or pull.
+
+Types of Queues:
+
+Push Queue : When messages are pushed from the queue to the worker. Consumers can not control messages.
+Pull Queue : When  consumers asks if the queue has any messages for it and if yes the message is pushed to the consumer. Uses Polling which is resource heavy.
+
+
+I have a queeu and get a lot of messages like 10k. Now if the queue goes down, because queue is ephmereal the messages will be lost.
+
+Now here Kafka helps us. Kafka creates a new persistent queue here and stores each message in the disk.
+
+Kafka is a pull queue and uses a pub-sub model. Subscriber will pull messages from the queue. Worker is the subscriber and App server creating the message in the Publisher.
+
+Kafka also uses something like topics. Topic is a label on the messages.
+
+If our queue receives messages of different types and we have different workers that are efficeint for different messages then we need to make sure messages of one type go to one worker. In this case topics are useful as messages are given topics and instead of workers subscribing to the queue they subscribe to topics and they will get a message when a new message with that topic is added to the queue.
+
+Messages can have more than 1 topics.
+
+Kafka has a high throughput, how does it handle this ? Kafka uses partitioning to deal with this.
+
+Kafka is a cluster of machines. A cluster is divided into brokers. Broker is a machine and the machine is divided into partitions. Each partition can have messages of 1 topic and consumers can subscribe to partition.
+
+

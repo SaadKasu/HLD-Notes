@@ -1,0 +1,70 @@
+Problem Statement :
+	Now when we are using a monolith archtecture with bank systems.
+	- If we make a transaction it can be handled using ACID properties, isolation levels.
+	What happens when these are 2 seperate banks ? Or think of a Flipkart system where there are seperate services and we need to track a transaction across services and what to do in case of failure. 
+
+We need to do this using something called Distributed Transations and there are 2 ways to approach Distributed Transations :
+
+-One approach is to use 2- face commits. What this will do is we start with the rows across different DBs (of services) and ready the DBs before the CUD operations and block the rows till the transaction is completed. Till the transaction is not completed the rows are blocked.
+
+	-> THis is not recommened in service pattern and is considered as an Anti thesis.
+	-> In case of heavy read/write system blocking rows is not advisable.
+
+- Another approach is SAGA Pattern :
+	-> Can we break down the transactions into steps and if yes we will revert the steps reliably in case of failure across services.
+	
+	1.) What is a step ? :
+		- Any process that can be executed on 1 microservice reliably.
+	2.) Once a step is executed in a service we can make a call to the next service and if the next service returns a positive response then we can complete the transaction. Else, we revert the steps executed before the failure occurs.
+	3.) In case of success too we need to make sure each step is executed.
+	
+How to make sure there is sucess or filure and who will execute the steps ?
+	- Now there are 2 approaches here :
+		- Orchestrator (1 service acts as a manager who will tell other services to execute steps.)
+		- Choreography - This is a purely event driven architecture. When a step is executed, a service writes a message to a topic in the Kafka queue and we can have other services who subscribe to the topic and will be notified and then these services will perform thier operations. Now in this case if there is a failure in any service we can do one of 2 things :
+			1.) The service failing will send a event to the queue and every service relevant to the service will read the message and revert the transaction.
+			2.) Now if the machine dies before it can send an event we will either :
+				1.) Set a timeout that will allow a service to wait for a success response from another service in some time and if no sucess it will fail the transaction.
+				2.) Persistent queues like Kafka have something called as offset that is like a counter for a topic and it will store the last read message which allows subscriber to read only most recent messages.
+				Now using the offset we can not allow the offset of the topic to increase unless there is a response from the machine reading the message. If there is no reponse the offset is not increased and the next time when the machine comes online the same message is reprocessed. This is like a retry mechanism.
+	Note : In kafka we can further divide topics into partitions based on the a partition key that will allow the same topic to be split amongst multiple machines so that rate at which messages are publised is higher. All messages in a partion guarantee ordergin but ordering is not guaranteed across partiotions of asingle topic. So choose partition key correctly. Similarly the consumers instead of having 1 machine can have a group of machines called a consumer group and each machine reads from partions so that still order is maintained.
+	
+	Pros and Cons of both approach :
+		1.) Choreography pattern/Event Driven Architecture is slower due to addition of a kafka layer. and there maybe some merit to Orchestrator model as the manager service is closely coupled with the other services.
+		2.) Observibility is easier in the Orchestrator pattern as the manager service has trace of the ordering of services. In Choreography we have an external kafka and need proper trace id.
+		3.) Observibility is not as reliable as there is a SPOF (manager service), we can have slave here but latency might increase but again its a compromise we need to make. But in Choreography the kafka cluster is reliable and has back ups and events will not be lost and becasue kafka is the driver then there is no SPOF. Even the consumer and publishers are not SPOF hence better.
+	
+	Using microservices might lead to some immediate inconsistency. When a step is executed in 1 service but is yet to be executed in another service. But eventually it is consistent.
+
+Problem Statement 2 : (Common Query Request Segreagation [CQRS])
+	-> There might be a use case where we might want to join across tables in seperate services. 
+	-> We can not call one DB from anotehr as that violates "Seperation of concern".
+	Approach :
+		- What we do here is we divide the queries into Create, Update and Delete queries and Read queries. And We will send the CUD operations to the respective service and simultaneously to a third service that writes all the CUD operations from the 2 services and stores it in another DB so that we have all data in each service and a seperate DB. 
+		Now when a read operation comes it will go to the third DB to solve for the problem statement. So THis is CQRS.
+		
+	Note : Microservices connect with each other over gRPC instead of REST. gRPC exposes functions for use by other services. In REST, instead of calling functions, the client requests or updates data on the server
+		
+Problem statement 3 :
+	-> One microservice class anotehr which intern calls another service.
+	Problems : 
+	1.) Now if 1 mircroservice fails, lets say the third one fails the 2nd service will have requests timing out and hence clogging the system which will casue the 2nd service to fail and so on this is a Cascading Failure.
+	2.) Thundering Herd : The failed service is trying to recover but the service is getting bombarded with the requests from the previous service and hence it is not able to work efficiently. And the failed microservice will never be able to recover.
+	
+	- To solve this we use something called a circuit breaker pattern :
+	Step 1 : Failure Categorization
+		-> Look at a failure and divide the failure that are expected : like user is not found or authentication failure etc. These are not fialures that affect other requests.
+		- Then there are failures that affect all requests when there is a bug or the system is not working efficently : These are called Non - Transisent failures.
+	Step 2 : How to detect if Microservice is down and How to detect it is Back up.
+		-> Now we need to track these failures and we track it on a global cache.
+		-> We keep status for each microservice and there are 3 status :
+			-> Closed : Microservice is completely healthy. Send all request.
+			-> Open : Microservice is not healthy don't send any request.
+			-> Half open : Send only half(or a predefined number) of the requests and if there is high success rate, change status to Closed else set it to Open.
+		-> We keep a threshold to determine if the Microservice is failing or not. If the failure number is above threshold we will change the status of microservice.
+		-> What we do is we start from Closed status and if sucess rate is good keep the status as Closed. Else if failure rate is more than threshold we change status to Open and wait for a certain duration and move the status to Half open. Then we check if the requests are now getting processed. If yes change to Closed else if requests are still failing move again to Open status, again wait for some time duration and repeat the operation.
+	This step 2 is the circuit breaker pattern.
+	Step 3 : What to do about the failed requests ?
+		-> It depends on application. We can either revert the changes or else we might store the requests in the queue and process it later or if it is lost we can ignore it.
+	
+	Every pair of microservices that interact with each other maintain a circuit breaker pattern between them. And Failure rate can be stored in global cache for each pair of service.

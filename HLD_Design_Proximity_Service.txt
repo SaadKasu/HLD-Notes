@@ -1,0 +1,58 @@
+Proximity Service Design :
+
+MVP :
+	-> I will have a user and the user can ask for businesses or other users near to them and we should return a list of that based on our project.
+	-> There can be several types of businesses
+	-> There can be types of users.
+	
+	
+Naive Design :
+	-> Client sends me the latitude and longitude and asks for a certian type of businesss or a certain type of user.
+	-> Send that request to Load Balancer adn from there to app server adn then DB.
+	
+Here we start with a DB that stores latitude and longitude and then for each qeury we will just search with between qeury to search latitude between and longitude between.
+
+Problems :
+	Between is too expensive
+	Too many DB calls can clog the DB
+
+Better Design user Geohash. Geohash takes the lat and long and converts it into a 10-12 char String now the longer the string the higher the level of accuracy. 
+
+Geohash divides the map into 32  cells and then divides each cell
+
+
+Here as we have geo hash for user and each business we can use the like qeury in the DB based on the resoultion we want. It we wan user/ business within 10 miles we can use first 5 chars of users geohash and add % after that so it will match any business in 10 miles of the user.
+
+Problems :
+	Like is expensive
+	Too many DB calls can clog the DB
+	
+Generalyy users only request values within 5 to 10 miles of thier location so why don;t we store 2-3 coulmns that have resoultion of 5 10 and 50 miles so that we can directly use = instead of like.
+
+Table will contain 4 columns for geohash. 1 will store the complete geohash, 2 will store geohash first 5 chars, 3 will store geohassh first 6 chars and 4 will store geohash first 7 chars.
+
+We can add index of 3 of the geohash columns but that will make write slower as system is read heavy 
+
+
+Now to improve Speed using cache :
+	-> Create 1 cache that will store the id of the business as key and json of information about the business as value. Add all business to cache like this.
+	-> Then we add a key which is the first 5 chars of the geohash as key and a list of all business ids that have the geohash
+	-> Similarly for 6 and 7 chars 
+	
+	
+	The flow to search for locations:
+		Client gives us lat an long
+		We convert it to geohash
+		Use the geohash cache to get business at that cache
+		Get the business using the business cache
+		Filter the relevant business
+		Return the list to the user,
+	
+	To add locations :
+		Clinet gives you the businesss info along with lat and long
+		convert the lat and long to geohash.
+		Get the geohash_5, geohash_6 and geohash_7 of that businesss and add it to our table.
+		then we need to add this business to business cache and all relevant geohash cache.
+		We can add it to cache async
+		
+Stream processing pipeline is important that listens to changes (CDC) in DB. Use Kafka that listen to C,U,D operations on the table. Any time one of these operations happen the DB will write a message in the kafka topic. SO anyone who wants to say updated to the DB can subscribe to Kafka topic and stay updated. Now the subscribers(consumers) get notified if any change is there and can process based on that.

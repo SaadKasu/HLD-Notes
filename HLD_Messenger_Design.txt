@@ -1,0 +1,105 @@
+Design Messenger :
+
+1. )  Requirements / MVP
+2.) Estimate Scale 
+	-Sharding
+	-Read/Write Heavy
+3.) API Design
+4.) Deep Dive in Design
+
+MVP :
+
+1. )  Send and Receive Messages
+2.) On opening the messanger we should see list of conversations with most recent first
+3.) List of messages in the given conversations.
+4. ) See number of unread messages.
+5. ) User Registration/ Contact List
+6.) Notification on new message
+
+Non Functional Requirement :
+1.) Low Latency
+2.) Higly consistent system is prefereed as messages arriving out of order can be a problem.
+
+
+
+Estimate Scale :
+
+- To get no of messages to store in a day. Average active users * no. of messages sent per day.
+
+- One message can store text, sender, receiver,  timestamp, msg_id. We can estimate the size as a text can be 100 chars, sender id - 8 bytes, receiver id - 8 bytes, timestamp 8 bytes.
+
+Considering no. of messages sent per day which is 20 billion multiplied by each message we get 15Peta Bytes of data.
+
+So now we need to know is the system read or write heavy .Now because we have 1 on 1 chat message sent once will be read once. So it is both read and write heavy.
+
+Instagram is a read heavy system.
+
+Any DB where we store any data is write heavy.
+
+
+APIs:
+
+1. ) sendMessage - Parameters needed are text, sender, receiver
+
+Never store timestamp as timezone. Always store is at EPOC.
+
+Idempotent - Execute the operation N times and the result N times is the same.
+
+Here in our send message API if we try to send a message multiple times(In case of poor network we sent the message but the acknowledgement did not come back.) we still want it to be sent only once no matter how many times we try. Here if we keep a message id the messanger can check if the id is already received if yes it will ignore it.
+
+For this message id we can use the sender_id + epochTimestamp + Device_Id 
+(2 people can be logged in as 1 user on 2 devices adn if they send the message at the same time then if we use sender_id + epochTimestamp then 2 messages will have the same id).
+
+If we use JAVA there are libraiires generate GUID or UUID using sender_id + epochTimestamp + Device_Id  or any other combinations.
+
+2.) getConversations for desktop - Parameters needed are userId, limit (This gives how many most recent conversations are needed), start (This will tell from thich most recent conversation we need to start, this will be helpful when we scroll and we need the next recent conversations). This is good for a desktop where we load the website.
+
+2.) getConversations for app mobile - Parameters needed are userId, timestamp(Here on a app what we will do is store the data from the last load locally and when we open the app the next time we send a request to this API with the timestamp which referes to the last time I updated my local messages and will ask for the conversation newer after that timestamp)
+
+3.) getMessages - Parameters needed are user id, conversation_id (messages with which user are needed), numberOfMessages (numberOfMessages that are needed), offset (from which message to get the numberOfMessages)
+
+
+How to shard the messages :
+
+we need to optimize for 3 APIs
+
+1.) userId : Here we will store the converation of each user on 1 machine. So a converation between 2 users will be duplicataed and it will  be difficult to keep the data conssitent as we need to write each message in 2 places and a lot of storage is used.
+getMessages - Works
+sendMessage - Does Not Work
+getConversations -Works.
+
+2.) ConversationId : For each conversation between 2 users all messages will be stored on 1 machine. In this case write for chat between 2 users need to be written and read from 1 mamachine. But the problem is for getConversations as conversations can be on different machines and read will be slow .
+
+getMessages - Works
+sendMessage - Works
+getConversations - Does not work.
+
+What we can do in case of ConversationId is use a seperate DB to store latest conversations of each user to optimize getConversations but then send message becomes a problem as we will have to update the DB for the user sending and receiving the message. In this case send message becomes heavy.
+
+So that is why we prefere userId.
+
+Here we prefere the column family as we have a weak structure and each column can have different size of values.
+
+HBase is a DB that supports high reads and consistency. What HBase does is when a write request comes it will write the request to WAL and not do anything else. Now when a read comes it will write the request from WAL to DB. Read is slow but write is very fast.
+
+Caching here :
+
+What we do is here most of the data is read from the app server itself and only writes are sent to the DB. App server acts as a cache. The app server fetches the most recent messages for a user  from DB for the first request but after that reads will be fast.
+
+In this cache the app server of the server will send a request to app server of receiver and tell him to add the receive request to DB of receiver.
+
+Whatsapp is different as it will always sotre messages in local storage and back up async. 
+
+Facebook messanger always backs up data to DB.
+
+Now for the eviction in Cache - We can have LRU for users or conversations. We can also evict based on both users and conversations. We can have a multi tiered cache where we can remove first last 15 conversations of a user then next 15 and so on till the LRU user is removed.
+
+We use write through cache as we need high consistency.
+
+
+Questions :
+1. ) Sharding Key - > Slack, Teams
+2. ) How to notify if a message has been received ?
+3. ) Group messages 
+
+Can we use the concepts thought in the class for systems we build that is the use of HLD

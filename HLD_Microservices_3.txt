@@ -1,0 +1,55 @@
+Problem statement :
+
+	-> We have an order table and there is a column called status and status can have many enum values.
+
+	->Now when we change the status field in the table we will lose the prvious states of the table and we might need states for analytics or some other reason.
+	
+	-> How to approach this ?
+
+Approach :
+	-> We can use logs ? Logs are not reliable as they are best effort and can't guarantee change is recorded.
+	-> Event Sourcing  Each framework has something called as audit trail. What we do here is specific a column or group of columns from a table and if any update is made on those columns that gets recorded and stored in a seperate table called activity.
+	The new entry is stored as a JSON and it will store all releavant fields like who updated, when, etc.
+	
+Design a Notification service :
+
+	1.) MVP - : Functional Requirements
+			  : Non Functional Requirements
+	2.) Estimation of Scale :
+		Sharding ?
+		Read/Write heavy ?
+	3.) API Design 
+	4.) Overall Design
+	
+	MVP : Functional Requirements
+		1.) Send Notifications
+		2.) Mediums on which notification is sent on should be extensible.
+		3.) Rate Limiting/Size Limiting : User/ Sender should not be able to send too many notifications. Too large notifications should not be allowed.
+		4.) Priorotize some notifications.
+		5.) Users should be able to allow require.
+		Non Functional Requirements :
+		-> Based on type of requirements it might be High Consistency or High Availibility that is required.
+		-> For this service we are building it for apps like Instagram so we will prefer High Availibility. 
+		-> For High priority notifications we need to make sure latency is less too.
+		
+	Estimation of Scale :
+		1.) Sharding  : We are not going to store all the historical data so not need to shard.
+		2.) Write heavy : We use a something like a kafka queue internally so it is read and write heavy both.
+	API Desing :
+		1.) Send Notification()
+		2.) Set user preferences :
+		
+	Overall Design :
+		1.) Sending notifications is async procress.
+		2.) Need some checks for the notifications to see if notification needs to be processed.
+		3.) Need storage to store recent notifications and their status,
+		4.) Notification processing by mediums also should be async.
+		5.) Publish some event to let other services know notification is published.
+		6.) Delete old notifications nightly.
+	
+		->For priority we can use sperate Kafka topics in the queue and consume from topics at different speeds.
+		->We can also have a seperate topic in queue that will store the rejected/filtered notifications so that we can revert the response when status is asked.
+		-> After filtering store the notifications in DB or Redis if faster storage is needed.
+		-> After filtering the notifications we can publish the notifications to aniother queue that has mediums as topics.
+		-> Write a cron job to clear old notifications.
+		-> To send actual push notifications we might need to use google notification service or apple notification service or a web socket connection.

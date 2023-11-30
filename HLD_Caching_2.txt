@@ -1,0 +1,33 @@
+Problem :
+
+We have a scaler website solving the porblem is slow if we use object store to store input output file.
+
+Can we improve the file store ?
+
+Caching is a source of data which is actully faster than the source of truth.
+
+Caching can be used.
+
+Cache can be local on each server
+Cache can be global on 1 new machine with all the files.
+
+
+Now in this case how do we check for consistency :
+Store the file in the DB as fileName+lastUpdatedDateTime and when the server needs it it will check if the file it has matches the one in DB (name match). If in DB the name has been updated that means a new file exists and we need to fetch a new file from DB and store in app server.
+
+This approach will take time in case of every update but it is still faster than going to Object store at each fetch.
+
+Biggest problem with cache validation is how to maintain consistency.
+
+Servers are called stateless when the output does not matter which server we use otherwise they are stateful.
+
+Redis stores key value pairs. Used for Caching. Redis, if not hosting is free.
+Redis can store key value pair and value can be sorted sets. We can specify how to sort the data. used a DB or cache.
+
+Prefer local cache if you have good data invalidation approach and if there is lot of data transfer between global and app server.
+
+Rest use global cache.
+
+Cache is useful if hit rate is high else no point in using cache.
+
+Delta Fetch - client says I have everything this a time stamp now give me everthing after this time stamp

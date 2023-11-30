@@ -1,0 +1,98 @@
+Design Uber :
+
+Steps of Design :
+	1.) Features for MVP
+	2.) Estimation of Scale
+	3.) Design Tradeoffs
+	4.) Deepdive
+	
+MVP :
+	Users can search for Taxis near them
+	Drivers can receive drives near them
+	Matching also such that it is efficient for everyone.
+	
+
+Estimation of Scale : Never be afraid to give wrong numbers. Just make a logical claim for your numbers. Do these calculations quickly.
+	1.) In delhi there are around 0.1 million cabs.
+	2.) We can assume 100 big cities in the world.
+	3> 10 Million drivers in big cities and lets assume twice as that much for all citiess.
+	4.) No. of users will be 2% of the population of the world so around 140 million users.
+	
+Design Tradeoffs : Make tradoffs for the biggest problem in the system and decide between HA or HC.
+	1.) Finding drivers faster is a need. High availability
+	2.) Payment system needs to be Highly consistency.
+	3.) After booking the cab that sub system should be consistent.
+	
+	
+Quad trees for uber might need cabs to be removed and added very frequently so why don't w update the cab locations after some time and not each time the cab moves.
+
+
+Request Diagram :
+	Client -> DNS -> Client -> (Gateway of the system + Load Balancer) -> App server (can be stateless or stateful) -> DB + Cache + replica + cold storage
+		
+Gateway helps seperate outissde world from our system. Gateway deals with secutirty autthentication etc.
+
+Cold storage contains data that is not used for daily use but might be needed once in a while. It stores archive data.
+
+Database fedration : Complicated systems in todays world, it does not make sense to store all type of data in same database. So throughout the system we have multiple database (types can be different too) and divide of DBs used together is Database Federation.
+
+User Database is a type of database used in database fedration. The profile is structured and prefer SQL.
+
+Design Deep Dive :
+
+Uber is not a single system. It should be divided into regions as it is city or region specific. If there is a need for inter city travel still we will need to check the region we are in.
+
+	Needs of our system :
+		1.) User DB using SQL.
+		2.) Quad Tree for storing user and taxis for regions.
+		3.) Use Database fedration of quadtrees for different regions.
+		4.) Detailed Location Trackers for analytics. Wide column family DBs are ussed for this like cassandra as they help answer time queries.
+		
+		
+Uber does not divide the regions in bassed on cities it divides based on connectivity, user base and other factors.
+If driver moves, they should be part of a different region quadtree.
+
+
+How do regional systems work ?
+	Uber takes location at the first step and location is sent as part of request.
+
+1.) Different regions will have different gateways and DNS will have mapping of all Gateways. 
+2.) Now DNS can have resoluttion based on geo location then client will get IP addres of the regional DNS. If DNS is not geo based then there is a waterfall model which will return all IP addres for Uber and then client will go to the first IP address and the gateway at that IP addresss will reroute the client to corret IP address.
+3.) Now at that region when we are correctly routed.
+4.) Each region has DBs, quad tree, app servers and LBs along with backups and replicas.
+
+
+Now to start with the quad trees. How will uber estimate where there are more users ?
+	->Initially uber can estimate data based on important locations or they can buy data from google.
+	-> This is called bootstrap where we start a program with some approximation.
+	
+5.) Now the driver needs to send his location ever minute and if based on the location the quad tree cell has changed, change the quad tree cell of the user.
+6.) We maintian a cache like redis to store driver : location (lat, long) + cellId  mapping. 
+7.) Now to minimize the queries going to Quad Tree we can use another cache to sotre cell id : 4 coordinates mapping. We can use replicas of the quad tree to read this data without using redis.
+8.) Using maps created in step 6 and 7 we can see if the driver is still in the same cell or not.
+9.) This will minimize the quad tree queries.
+10.) If the driver hass moved from the cell we will need to update the quad tree then update the driver : location + cell map.
+
+	Biggest Problem : Should we merge and split cell at high frequency ?
+	
+11.)Two ways to deal with this problem. 
+
+	1.) Instead of using treshold like 100, have a range from low to high and only when we go below lower range we merge and only if we go above the hiher number then we will split.
+	2.) Another approach is to update the quad trees once every hour or a few minutes.
+	
+12.) Uber uses both Range and time based approach so that it is most efficent.
+
+
+
+Complete Flow :
+	Client -> DNS -> Gateway -> App Server (get drivers) -> Quad Tree DB -> App Server (filter drivers) -> Send request to driver - > If yes match and process the next steps (create trip, show route, etc) -> If no go to next driver. -> Another way could be request could be sent in parallel.
+	
+How to send request to driver ?
+	-> One way is a web socket. WHere the driver and app server is connected to the driver via web socket and eitehr of the app server or driver can send a request at any time. THis is a push based appraoch.
+	-> Other is HTTP long polling, where the driver will send a HTTP Long request to sserver and if the app server has a ride for the driver the app server will send the drive responsse. If the server does not have a positive responsse for the drive it will wait till timeout (30 seconds) and if in the time there is a drive request it will send a response else it will time out the request. Then if there is no drive for the driver then it will send a new HTTP Long polling request after timeout of 1st request.
+	-> Or you can leverage android and apple notificataion service to send the notification to the drivers.
+	
+HTTP Long polling - Normal HTTP request is when we send a request we get a reponse very quickly. In HTTP Long Polling, when the request is sent if there is a postive reponse the requesst is honored but if the requesst does not have a postive response then we wait on the response (till 30 seconds) and then timeout if in the 30 seconds we don't get a possitive response.
+
+
+Uber uses HTTP Long Polling.

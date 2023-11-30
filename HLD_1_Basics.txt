@@ -1,0 +1,87 @@
+Delicious - Bookmarking website
+
+Problem - In 2002 bookmarks were local to the machine.
+
+We wanted a way to access a way to access our bookmarks from any where else.
+
+Solution : Let's have a website on which users can store you bookmarks.
+
+When we want to solve a problem we look at the MVP (Minimal Viable Product).
+MVP is the bare minimum set of features required for a usable product.
+
+MVP for Delicious :
+
+1. ) Create Account and Login
+2.) Add a bookmark
+3.) View Bookmarks 
+
+-- SideNote : Pagination : Initially shows a few results and as we scroll it loads
+more results. This is done in case of a lot of data.
+
+Now after creating the API's required for the MVP. We need to be able to use the 
+APIs from elsewhere and not on the same machine.
+
+Develop a webserver and we need an ISP to host the webserver. Once hosted the 
+webserver anyone can enter the IP address of the system where the webserver is hosted.
+
+Domain Name Server (DNS). ICANN is a company that stores the Name - Ip address 
+pair for the webservers.
+
+When we enter the name of the website. The browser contacts DNS and DNS returns the 
+ip address.
+
+Issues :
+1.) ICANN is single point of failure. 
+2.) ICANN servers can be a bottleneck. 1 trillion devices in the world if all try to connect the internet.
+
+But in the realworld there are 3 levels of DNS servers. At the ground floor there is ICANN server. After that we have level 0 DNS servers, level 0 get data from ICANN. and there are lets say 10 level 0 DNS and at level 1 there are 10 DNS for each level 0 server and so on for level 2 and 3.
+
+In this way tehre are a lot of DNS hosted at each level. (Users access Level 3 DNS). 
+
+DNS is maineted by ISPs, big Corps (Google / Facebook), Govements, militaries, etc.
+ 
+Server : ANy dedicated machine that provides a service over a network.
+
+For any count related to user count use 64 bit integer as the datatype as it can support upto 10billion unique values;
+
+Using PC as server can cause it to run of out space.
+
+In HLD curiculum is about dealing with issues that comes with Horizontal scaling.
+
+
+In Horizontal scaling we use a load balancer that distributes the request to other servers.
+
+Problems :
+
+LB can be a bottlenexk
+LB can be a single point of failure.
+
+To solve this problem we can use multiple LBs. and LB is not ab bottleneck because it takes only a fraction of time to process the request so it is never a bottle neck.
+
+Also we can associate one Domain name with multiple IP address so DNS also acts as 
+a DNS.
+
+Active / Passive Replication :
+
+Few LBs sharing copies of the servers associated to the LB. The LBs are physically connected to the router.
+
+We can have few passive LBs connected to the router and only one LB is active at a time but if the active LB fails then a backup is used. So single point of failuer is avoided.
+
+
+Few Questions :
+
+1. )  How does LB know which servers are active ?
+2.) Which request should be routed to which server ?
+3.) Where are we storing which data ?
+4. )  User request life cycle ?
+5.) What happens to the data if a harddisk fails ?
+
+
+In Case of multiple LBs, the client can either request all IP addresses and choose one of them or DNS provide a random IP addres.
+
+
+You connect to the router and router is connected to the internet and all devices connected to the router have the same Public Ip address but all devices have different Private IP address.
+
+Devices have different private ip address because router should know which device to send the request to.
+
+

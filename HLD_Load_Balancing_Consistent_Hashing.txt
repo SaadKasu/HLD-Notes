@@ -1,0 +1,75 @@
+Load Balancer and Consistent Hashing
+
+Typically Load balancer performs these 2 mechanisms (Heart beat and health check) itself. But sometimes it uses external services like Apache zoo keeper to perform the check that a server is working.
+
+Apache Zoo Keeper - Distributed Config Management Service
+
+Heart Beat - This is a push based mechanism (Server pushed the ping to the LB). Every T time the server sends a request to the LB and request will be of the form that I am alive. If the heart beat is not sent in the T time the LB will consider the server dead. Geenrally 1 or 2 hearbeats missed will consider the server dead.
+
+Health Check - This is a pull based mechanism (LB requests ping from the server), at every T time the LB sends a ping to the server and if serve responds (response is a pong) then the server is consisdered alive.
+
+
+Data sharding - Partition data horizontally across multiple servers.
+
+Vertical PArtition - lets say there are 3 columns in the table. If we split the number of columns and create 2 tables with 1 and 2 columns then this is vertical partitioning.
+
+Horizontal Partition - Tables have the samne schema when split but the rows are split. Improves query porformance.
+
+Sharding data randomly is not great because we will have to send the request to all servers because we don't know where what data is stored. 
+
+Shard the data using a parameter that we can map to consistenly like user id. so that request is sent to 1 server.
+
+If data for 1 user is not enough to fit 1 server than we need to rethink the sharding key and approach.
+
+Sharding keys should be unique.
+
+Aprroach for data sharding :
+
+1> Simple mod approach
+
+For a basic sharding approach we can use user id and server numbers. Based on this we can get server for each id.
+
+But this is not very consistent as servers can change. WHich will cause data remapping which is expensive.
+If server goes down distribution of data will be very expensive.
+
+2.) Range Appraoch :
+
+Divide the user id in ranges based on the number of servers. So if there are 300 users and 3 servers each server will have 100 users 0-100, 101-200,201-300 ans so on.
+
+Problem here is if new server is added it will not share data of existing server.
+Problem 2 is old users will have more data so again load distribution is not balanced as newer servers will have less data.
+Again if server goes down all data will need to be redestributed which is expensive.
+
+3.) assign servers randomly and store mapping on mapping table.
+
+Mapping table can be huge if users are huge and this data should be in ram as access is required consistenly. 
+
+If there are multiple LBs then mapping tbale should be in sync between all this data which is very difficult to achieve.
+
+4.) Consistent Hashing : 
+	Equal Distribution at all times
+	React to changes in servers i.e. add or remove
+	Minimal Data redestribution
+	LBs don;t need to store data
+	Lbs don't need to sync up.
+	Fast to compute which request to send to which server.
+	
+Consistent Hashing Ring - Represents values of the hash function in a circular number line.
+
+In consistent Hashing the output for any input will lie within this ring.
+
+1.) Use K hash functions for servers 
+2.) Each hash function outputs value on the ring for every input.
+
+Using K functions gives us k spots for each server on the ring. 
+The request is hashed only using 1 function so we get 1 output for each request.
+
+Then assign the request to the next server in the clockwise direction.
+
+As K increases even load distribution increases thank to probability.
+
+Because in real life the ring is from 0 to 10^18 so probability of over lap is 1/10^18 which is extremely rare if our hash function is good.
+
+In real life we store the hash value of each server in an array in increasing order so if any request comes we can binary search the request hash value and find the correct server. T.C. O(logk + logN)
+
+And the size of array is at max k * no.of servers. So it will not be more than 12Mb in case of 10000 servers and 100 values for each server and each data value is 12Bytes. SO not much ram is needed.
