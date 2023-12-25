@@ -1,0 +1,167 @@
+Important points :
+Start with the MVP : Minimum viable product
+Caching : Make data access faster.
+
+Problem with caching :
+	What to do when cache is full : 
+		Eviction :  LRU can be used 
+	How to maintain consistency : 
+		Use Write though Cache : In the transaction the cache is wriiten to first then DB and then transaction is completed. Takes longer but is reliable
+		Use Write Back cache : Cache is written to first and then async data is synced to the db. Not reliable in case of failures of Cache.
+		Use Write Around Cache : Data is written to DB and Cahce keeps itself upto date with DB async.
+	
+Cache can be on each server or we can have a global cache.
+	-> Problem with local cache is data consistency. In global cache we can store the file as file_name+timestamp. Using this when we want to access the file, in the cache we check the time stamp if it is lower than the timestamp in DB then we need to update the cache else we can use the data in the Cahe.
+	
+Redis is an exmple of key-value pair. kye can be string, interger. Value can be string, interger, booleam, binary, list,arrays, dates. JSON is also allowed as a value.
+
+How does the load balancer know that the server is alive ? This is taken care of by the zookeeper 
+	-> There are 2 mechanisms for this :
+		-> Heartbeat : The server sends a ping every T time to the load balancer saying that the server is alive. If the LB does not receive 1 or 2 heartbeats the server is considered dead.
+		-> HealthCheck - Every T time the LB/zookeeper sends a ping to the server and if the server does not respond to the ping then after 1 or 2 failed healthchecks the server is considered dead.
+	
+What is vertical partitioning ? - If your table has 3 columns id, name and email. Split the table into 2. 1 will have 2 columns as id and name and other will have 2 columns as id and email.
+
+What is horizontal partitioning ? - The table is split on the number of rows.
+
+Data sharding - is horizontally partitioning the data acreoss servers.	
+
+Ways to horizontally shard the  data ?
+	-> By id ranges - New servers will have no load and old servers will be heavily taxed.
+	-> Mod id by number of servers and distribute the load like that : If a server goes down all data needs to be remapped.
+	-> Use mapping table - Ram heavy and expensive
+	-> Consistent Hashing : Consider A number K. Now get k hash functions. Each hashfunction based on the number of the server will give a unique value that lies on a circle. 
+	
+		-> So for each server there are k spots on a circle. And when a new request comes it is mapped to the 1st server that is present in the anticlockwise direction.
+		
+		-> Here when a server goes down the request that were supposed to be handled by the server are evenly distributed amongst other servers.
+		
+	-> How consistent hashing is stored ?
+		-> IRL the servers get assigned values from 0 to 10^18 using the hash function and each of these values is soted in an array in increasing order so when a request comes we can binary search the correct server to handle the request and send it to the server.
+		
+		In case there are 10k servers and 100 hash functions we get 10^6 array locations and each takes 8 bytes so we don't need more than 8 Mbs for the storage.
+		
+What is a consistency issue ? - When we have 2 or more servers but the data in the servers is inconsistent. This makes the servers stateful.
+
+	How to solve for this ?
+		-> We can either copy the data between the two systems in real time. This will take long for the request to be served.
+		-> Or else we can copy the data async. This can still cause consistency issue if one of the machines goes down before the async call.
+		
+	Now in both these solutions if 1 of the servers goes down. The service will either be unavailable or inconsistent.
+		
+	What is network partition : Any setup where members or servers can not communicate with each other but can communicate with the outside world. 
+	
+	
+	This is what CAP theorem is :It says that when there is a network partition, you have to choose between consistency and Availability  and can not have both.
+	
+	C -> Consistency
+	A - > Availability
+	P : Partition Tolerence - > Here the systems partitioned by the network still continue to funtion
+	
+	
+	Now in all cases Partition is present. We can have systems that can communicate with one another. In this case we can have consistency and availibility but then we face a problem of choosing between Latecy and Consistency.
+	
+	Think of Write through Cache and Write Back cache. In write through we can have consistency and in write back we can have latency but both are not possible.
+	
+Now we have a database. We have sharded it into multiple shards but what if the data in a shard is lost. The machine does down ? What to do ? 
+
+	-> What we do is keep a master slave setup where 1 machine is the master and 1 or more machines can be slaves. When ever the master goes down it can be replaced by the slave.
+	
+	-> Master handles the request while slaves job is to be insync with the master.
+	
+	-> To be insync the slaves use the WAL (Write ahead logs) of the master table which documents all the write queries on the table. 
+	
+	-> Either the slaves update themselvess timely or the master pushes the delta logs after every new write request.
+	
+	Types of ways in which the slaves stay consistent with master :
+		-> Slaves sync periodically : The slaves access the maters WAL and in this case only data is written to master. Data is written to slaves async. Here the System has low latency but is not consistent.
+		-> Only 1 slave is written to along with the master at the transaction time : The write operation includes writing to 1 slave along with the master. In this way we have atleast 2 copies of the data at any time. The other slaves sync up async. This has higher latency than the previous approach but also improves consistency
+		-> All slaves are written to at the transaction time : This have high latency but the consistency is the best and very low chance of data loss. 
+		
+		In all these types if the write operations fail at transaction time the transaction is reversed.
+		
+Need for NoSQL DBs :	
+	-> First we might want to store data that is not structured 
+	-> Adding columns is easy as there is no structure.
+	-> Scaling is easier as sharding is not needed.
+	-> No need to shard the data.
+	-> If you don't need ACID properties.
+	
+Types of NoSQL DBs :
+	-> Key-Value Pair : Redis, DynamoDB
+	-> Document DB - 
+		-> Stores data in JSON format. 
+		-> Each JSON is a seperate file and it is upto the developer to optimize for search and sort.
+		-> The DB does not  know what is inside the JSON file.
+	-> Column Family DB - Compared to key-value and document db column family impose more limitations on the structure. 
+		-> From the highlevel it can be thought of a map consisting of smaller maps where the first map is a column family and the smaller map is a row. 
+		-> Think of column family as a table which can contain several columns.
+		-> Column family supports use of sets in the rows.
+		-> In the column family DB. The data is stored in columnss and rows. The row key is use to identify a row and the column key (name) is used to get that column value.
+		-> Difference between a standard RDBMS and column NoSQL DB. Think of an example where You have a stadium full of people and you need to find people with today as birthday. SImilary think if you want to calculate the average height of people.
+		-> Column DB stores aggreadate data well and is faster at computation of such data. Column DB is optimized for faster analyssis of data at we need to access only 1 column
+	-> Graph DB - Here the data is stored in forms of nodes and relationships instead of tables and documents.
+		-> It uses a graph structure to store data.
+		-> Used when relationships between data elements is more important.
+		-> Instead of using mapping tables we store the related data of a user with the user. So finding relationships is faster
+		
+How to decide a sharding key ?
+	-> List the most frequest use cases
+	-> Sharding key has to be an entity and the entity should make sure all queries come from the 1 machine. If 1 machine is not possible then minimum number of machines.
+	
+-> Timestamp based sharding is not efficient as the most recent DBs get all the load.
+
+For Uber, we have an option of location_id, user_id and driver_id - Use location_id here as location is mostly constant for a user.
+
+For Slack - user_id, channerl_id, org_id - Use org_id here as mostly we communicate within the org.
+
+Why is RDBMS used ?
+	-> Provides ACID 
+	-> Solves for a lot of redundency due to Normalizations.
+	
+-> Difference between Partitioning and Sharding ?
+	-> Sharding is done across machines. 
+	-> Partioning is done on a machine to reduce search space.
+	
+-> Steps to create shards :
+	-> Choose a sharding key
+	-> Denormalize the data such that most frequently answered queries don't need to access more than 1 shards 
+	-> Take care of fault tolerance : If there is a masster slave setup. We can use master for write request and slave and master for read write requests. 
+		-> When a master dies it can be replaces by slave.
+		-> The zookeeper maintins the DB client and switches it to new master if the master dies and a slave iss made a masster/
+	
+-> How to avoid under replication ?
+	-> When 1 slave in a master slave dies we might have under replicated data now to avoid under replication what we can do :
+		Instead of storing data on just the machine because we have used consistent hashing we have all machines in a cirle. so What we doe is store the data of this machine on the next machine too.
+		In this way we have 2 copies of the data.
+	-> Replication level decides how many copies will be there. 2 means there will be 2 copies and data of this machine will be stored on the next machine and the machine after that.
+		-> The problem in this case is the data redundency is high.
+		
+	If the replication level is 2 that means atleast 2 machines should be written to.
+	
+-> 
+	
+-> We can decide the tunable consistency of a system by a formulae
+
+ R + W > N for highy consistent systems.
+	R : Minimum no.of reads needed for transaction to be successfull
+	W : Minimum no. of writes needed for transaction to be successfull
+	N - No. of replicas
+	
+ R + W <= N for eventual consistency
+	
+	
+-> What is gossip protocol solves the problem where :
+	-> System nodes are not aware about the other system nodes state
+	-> Communication : How can nodes communicate between each other
+	Solutions :
+		-> 1 solution to this problem is that Zookeper manages the state in a centralized fasion. This foucses on Consistency
+		-> Another approach is to use a perr-peer solution. This focuses on availibility
+		
+		
+	What is gossip protocol ?
+		-> This is a p-p protocol in which nodes exchange state information about themselvess and other nodes they know about with each otehr periodically.
+		-> These are eventually consistent.
+		-> Neighbours update heartbeat data of neighbours periodically. 
+		-> Hearbeat data is kept as total count so if I recive higher heartbeat count from a neighbour about another neigher I will select the maximum value.
+		-> Not just heartbeat but other node data is also sent, like free memory, load average
