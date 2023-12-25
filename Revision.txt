@@ -178,6 +178,32 @@ Why is RDBMS used ?
 			-> Writes are fast O(1)
 			-> Read is still slower
 			-> Inefficient use of storage
-		-> 3.) Using WAL with Index - Here we store the data, location index in the memory in a map and update or add new entries accordingly.
+		-> 3.) Using WAL with Index - Here we store the data, location index in the memory in a map and update the map for new entries or existing entries. We still add values for new id's. If the id's exist in the file.
 			-> Inefficient use of memory
-			-> Read and writes are fasst
+			-> Read and writes are fast.
+			
+		-> Now Using WAL creates a lot of redundant data so to clear this we periodically run a process called Compaction where the duplicate id entries are removed and only most recent entries are kept.
+		
+		-> 4.) LSM Approach (Log structure merge tree).
+			-> LSM are designed to handle write heavy workloads. They are used in Casandra, HBase, etc.
+			-> LSM trees keep data both in memory and on disk. 
+				-> The in memory part is regular update in place datastructure with indexing. Thiss is a mem table
+				-> The on disk part consists immutable sorted string tables.
+			-> The sorted string table stores key value pairs. Both key and value are string.
+			-> The SS tbale file format is conceptually a list of consecutive key-value pairs stored in ssorted order.
+			-> Once the memtable is filled it is flushed to the dissk.
+			-> The sorted string table has data stored in sorted order so read time complexity is reducred to LogN instead of N ussing disk address.
+			-> This also has compaction
+			
+			For more efficient use of LSM appraoch we use bloom filters as the SSTables increase in disk.
+				
+			
+		
+		
+-> What is a Bloom Filter : 
+	-> It is a datastructure that is use to tell us if the request/ id is in our system.
+	-> It is a deterministic datastructure which will definately tell us if the id is not in our system but can not tell for sure if it is present.
+	-> What it is : It can be thought of as a map with key as a number and value as true. 
+		-> So We use a hash function and give the request id to the hash function not that hash function generates a number then we store the number in the map with value true. 
+		-> Now when we want to check if the id is there we can again give the number to the hashfunction and it will spit out a number if the number is there in the map that means the id might exisist but if it is not there that means the id is not present. 
+			-> Why doe we say it might exisst : Becausse 2 or more ids can give the same hash function ans.
