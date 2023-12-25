@@ -165,3 +165,19 @@ Why is RDBMS used ?
 		-> Neighbours update heartbeat data of neighbours periodically. 
 		-> Hearbeat data is kept as total count so if I recive higher heartbeat count from a neighbour about another neigher I will select the maximum value.
 		-> Not just heartbeat but other node data is also sent, like free memory, load average
+		
+-> How does NoSQL store and read data ?
+	-> First of all NoSQL is prefered for write heavy systems as columns are not fixed in size so it takes time to traverse the data.
+	
+	For Redis :
+		-> 1.) Use a file to store the data : Maps are ussed in RAM but when sstored as file the data needs to be read from the HDD in this case we need O(n) T.C. to find any row.
+			-> This approach is slow for search and write too.
+			-> It is cost effective
+			
+		-> 2.) Use WAL - Whenever a new write request comes we add it to the bottom of the file 
+			-> Writes are fast O(1)
+			-> Read is still slower
+			-> Inefficient use of storage
+		-> 3.) Using WAL with Index - Here we store the data, location index in the memory in a map and update or add new entries accordingly.
+			-> Inefficient use of memory
+			-> Read and writes are fasst
