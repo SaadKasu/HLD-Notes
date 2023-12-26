@@ -207,3 +207,41 @@ Why is RDBMS used ?
 		-> So We use a hash function and give the request id to the hash function not that hash function generates a number then we store the number in the map with value true. 
 		-> Now when we want to check if the id is there we can again give the number to the hashfunction and it will spit out a number if the number is there in the map that means the id might exisist but if it is not there that means the id is not present. 
 			-> Why doe we say it might exisst : Becausse 2 or more ids can give the same hash function ans.
+			
+
+-> Use case for Zookeper :	
+	-> Zookeper can be thought of as a coordination service for distributed system used for syncronization, configuration maintainance, etc.
+	-> As our application grows we add new severs and new DBs are added too. 
+	-> To maintain data integrity we keep replicas of DBs too. Now We have 1 master db and other as slave. 
+	-> Lets say the master goes down. And we need a new master. The problems we want answers for :
+		-> How to elect a new master ?
+		-> How to inform server that master has changed ?
+			-> One answer for this is we use a configuration server that stores the master of each DB but this could be a SPOF.
+			
+	-> Zookeper comes into the picture here.
+		-> It is a centralized config management system that also helps us with leader election.
+		-> It stores configs in files and it has a directory heirarchy with folders
+		-> Zookeper nodes/folders are called ZKnodes.
+		-> ZKnodes has config nodes amongst other nodes.
+		-> Zookeper consists of 2 types of nodes :
+			1.) Ephmereal - The data in this node is lasting a short time and will be deleted.
+			2.) Persistent - Data will be persisted and not deleted.
+		-> ZKnode storing leader is master and it is an ephemereal node.
+		-> How doess Zookeper help in leader election ?
+			-> So when the master is inactive the master node is set to null and a message iss sent to all machine on the watch list and which ever machine responds to the message first is elected as a master.
+			
+		-> Zookeper provides a central place for applications to coordinate operations and share information.
+			-> Like in case of a data update where a qurom needs to update the data for the operation to be successfull
+			-> The leader of the quorum uses atomic brodcast to send data to differrent follower nodes
+			
+	-> How does zookeeper work ?
+		-> zookeeper is not a single machine but a cluster of machines called and Ensemble.
+		-> Zookeper preferes high availibility
+		-> What zookeeper does it is 
+		
+What is Kafka ?
+	-> Forms the basis of message driven architecture.
+	-> Kafka is a pull based queue that uses a pub suib modle to send notification about new messages to the subscribed services.
+	->> Kafka is a cluster of machines where the single machine is divided into partitions and each partition handles a seperate topic. 
+	-> Consumer groups are a group of consumers subscribed to a topics and that consume messages from a topic. There is an offset that is used to denote which was the last message consumed.
+	
