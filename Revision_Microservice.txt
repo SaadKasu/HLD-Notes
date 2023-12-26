@@ -1,0 +1,133 @@
+Microservice Revision :
+	
+-> What is a monolithic architecture ?
+	-> It is a way to design an application such that the all the code for the application resides in one project. When any change is made to the code the complete project needs to be deployed.
+	-> All Model, View and Controller files are part of the same directory and to run the application all files need to be compiled and run.
+	
+-> Problems with a monolithic architecture ?
+	-> As code base becomes larger it becomes more difficult to implement change.
+	-> Code becomes more difficult to understand as all logic is part of the same project.
+	-> Any small change needs complete/ unrelated parts to be compiled too.
+	-> Can't scale individual aspects of the application.
+	-> Different frameworks can't be adapted as part of the same project.
+	
+- > Advantages of Monolithic Architecture ?
+		-> One executable file makes deployment easier
+		-> Different functionality is closely coupled so testing is easier and development is also easier.
+		-> As there is 1 project, it becomes faster to do in app process. Same things that would take 1 or more API calls.
+		-> Debugging is easier. As logs are easier to trace for only 1 system over multiple systems
+		
+		
+-> If we want to go ahead with microservice architecture. Some problems that we need to solve for ?
+	-> How to reduce latency ?
+	-> How to debug issues across services ?
+	-> How to prevent data inconsistencies ?
+	-> How to read data across services ?
+	-> How to handle the scenario where a service is down and it should not effect another service ?
+	
+	
+	-> To reduce latency or to process data as soon as the other service is ready we can use something like an event driven architecture. 
+		-> Here what will happen is, as soon as a device sends a message to the queue all subcribers which can be other services will process the message. 
+		-> This way we can avoid using a 24/7 web socket connection and the service does not need to poll periodically to check for new messages
+		
+		
+	-> To debug issues accross services ?
+		-> We use something called as an observibility pattern.
+		-> Why do we need logs ?
+			-> When some issue arises we need to begudg the issue and thats why we need logs. Two parts of this are :
+				-> Alarm : When an issue arises 
+				-> Logs : To debug the issue when it arises
+				
+		-> Now for logs :
+			-> What we do is, to trace logs accros systems we need common ids for the transactions. Ids that don't change betweeen services. 
+			-> Once we have such Ids we can in each individual service store logs on that id.
+			-> Once each service stores the log we can periodically have another service collect such logs and dump them into a central database where we can search for them when needed.
+			-> Logstash, EKL use the same concept.
+			
+		-> Another important aspect is Metrics ?
+			-> Sometimes logs are not enough to debug an issue. We might also need the CPU, RAM, network, etc. utilizations over time to analyze the issue or for general monitoring.
+			-> If we could have a graph that is plotted as utilization v/s time that could help us see fluctuations in utilization.
+				-> This can be done using a time series DB.
+					-> A TSDB iss a specialized DB that efficiently stores and retreives time stamped data.
+						->Each time series is stored in an optimized list of values.
+							-> Time series is a sequnce of data points  where each point is a pair. A numeric value and a timestamp. 
+							
+		-> Once we have the metrics sorted. We can use the metric data to send notifications in case of abnormal usages.
+		
+	-> To do operations in a single transaction is critical for Banking systems. In monolithic architecture is possible using isolation levels and transactions. How can we acheive this where it is a microservice architecture or two banks are talking to gether or we are making a transaction on a site like flipkart.
+	
+		-> To solve this we use somthing called as distributed transactions and there are 2 ways to do this. 
+			
+			1.) First approach is a 2 face commit approach. 
+				-> As part of this approach we first strart blocking the rows that are used for the transactions.
+				-> Then once the transaction is completed the rows are released.
+			This is not advisable in a service pattern and blocking rows in not advisable in read/write heavy systems as other transaction trying to access the same rows will fail.
+			
+			2.) Second approach is the SAGA pattern :
+				-> A transaction can be thought of a series of steps and if any step fails we will reverse the other steps reliably.
+				-> A step is any process that can be done on a single microservice.
+				-> Once the step is executed the service calls the next microservice and if the microservice returns a positive response the transaction is completed else the steps executed till now will be reversed.
+				
+				-> How to make sure the steps are executed and wherther there is a success or failure ?
+					-> There are 2 ways here :
+						-> 1.) Orchestrator : 1 service acts as a manager who will tell other services what steps to execute and when
+						-> 2.) Choreography : This is a purely event driven architecture.
+							-> Here we use a messaging queue with topics dedicated for transactions. 
+							-> When one step is completed a message is sent to the queue.
+							-> Now other service that needs to execute the next step will subscribe to teh topic and will perform the next step. 
+							-> Once the step is completed the microservice can return a message on another topic and based on the type of message (if it is failed or successful). We either revert the previous step or mark the transaction completed.
+								-> What if one of the services shutsdown mid transaction ?
+									-> One way is we can set a timeout for each transactions so that it will auto fail after sometime.
+									-> Other way is we don't fail the transaction but because kafka allows us to have offset (This indicates last consumed message).
+										-> We can not move the offset. 
+										-> So that the next time the service is back online it will complete the transaction.
+										
+							-> There might be some inconsistency at a time in Choreography but this is eventually consistent. 
+							
+							-> I feel this is how paytm also works. And think how failure takes upto 3 days to revert.
+							
+					Pros and Cons :
+						-> Choreography is slower as there is a kafka layer 
+						-> Observibility is better in Orchestrator as it closely coupled with services and it has track of a complete transaction.
+						-> Orchestrator is not prfeered as it can be a SPOF. and switching to replicas might be slower and has more downtime.
+						
+						
+	-> How to read data across services ? 
+		-> Sometimes we might need to perform joins across services. How can we do this.
+			-> One way is we get the data from other services. Store it in our system and then preform operation on it.
+			-> Other way that is common is the CQRS pattern (Common Query Request Segragation) 
+				-> Here when a CUD request comes to our application we store the data in the respective servive DB but also store the data in a third service. 
+				-> When a read request comes we directly send it to the third service as it has all the data.
+				
+			-> Both can be used, it just depends on the size of data you have and how oftern you need to query other services.
+			
+	
+	How to handle the scenario where a service is down and it should not effect another service ?
+		-> Here we face 2 problems :
+			1.) There is a cascading failure problem. 
+				-> If 1 service goes down the services that depend on it will fail and then they will go down.
+			2.) Thundering Herd : 
+				-> When the failed service tries to get back up it is bombarded with reqeust and so it will not be able to revive
+				
+		-> To solve these problems we use somthing called as a circuit breaker pattern.
+			-> In the circuit breaker pattern we distinguish 2 types of errors :
+				1.) errors that are expected like user not found, or transaction limit exceded, etc.
+				2.) Errors that are not expected like system errors or bugs etc. We categorize these as Non-transient errors.
+			-> There are frameworks that allow us to implement circuit breakers.
+			-> once we have identified the non-transient errors we keep a threshold and a time period. 
+			-> Then each service starts in the closed state where it will accept all the request. 
+			-> Now we will store the non-transient errors occuring per time period in a global cache.
+			->  And then if the number exceeds the set threshold we will move the state of the service to Half open. 
+			-> In the half open state the service only accepts 1/2 the requests it gets. 
+			-> And the error count is monitered in this state. 
+			-> If the count still exceeds threshold. Move the state to Open else we move the state to closed.
+			
+		-> The failed requests can be either discarded or reprocessed based on the requirement.
+		
+		-> In a microservice architecture each service can store failure rate of other service inorder to maintin the global cache.
+		
+		
+- > What is event sourcing ?
+	-> We need to keep audit trails on some important columns or tables.
+	-> Here event ssourcing is used. 
+	-> When the column is updated a new entry is created in an activity table which is a seperate table. 

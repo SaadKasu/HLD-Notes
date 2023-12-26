@@ -245,3 +245,40 @@ What is Kafka ?
 	->> Kafka is a cluster of machines where the single machine is divided into partitions and each partition handles a seperate topic. 
 	-> Consumer groups are a group of consumers subscribed to a topics and that consume messages from a topic. There is an offset that is used to denote which was the last message consumed.
 	
+	-> A topic can be further divided into partitions where each partition can have seperate consumers so that more messages are processed unit time. Ordering is guaranted in a partition but not across partitionss.
+	
+	
+What is Elastic Search ?
+	-> It is optimized to find keywords in documents or find pages/ documents by keywords 
+	-> can't use SQL or NoSQL dbs as they are not optimized for these kinds of searches take a lot of resources and time.
+	-> Elastic search uses somthing called as Apache Lucene engine which works on nothiing but inverse index 
+		-> Inverse index is a way to store documents in maps where the key is the keywords used inside the documents and the value is the document that includes those keywords.
+		
+	-> How does Lucene actually implement the maps ?
+		-> There are several steps like :
+			-> 1.) Word elemination -> Words like a, an , of, by, pronouns, special characters etc. are ignored as they don't matter.
+			-> 2.) Tokenization : After word elimination you are left with some words 
+			-> 3.) lemmatization - This is a process where each word is reduced its grammatical base word. Like Best is reduced to good. Ran is reduced to run. etc. lemmatization is  applied to each word after tokenization.
+			-> Remove Stop words : Abusive words, words you don't want to allow searches via can be removed after lemmatization.
+			-> Inverse Index - Finally with the words remaining we create and Inverse Index.
+			
+	-> Elastic Search and Apache Solr are wrappers aroung Lucene and provide additional finctionality to improve UX.
+		
+	-> Elastic Search is actually a document DB that allows us to specify Keys in JSON that need to be inverse indexed.
+	
+	-> Elastic Search hasmany use cases like ssearching products in a E commerce website. Or Finding logs by keywords.
+		-> Log finding is a very special requirement in case of distributed systems and ELK - ElasticSearch Kibana provides the ability to stash all logs from a distributed systems on  1 machine and allows full text searches on the machine.
+		
+	-> ES is prefered for read heavy use cases as write heavy systems will need to update indexes constantly.
+	
+	
+-> How is large data stored and transfered ? How does torrent work ?
+	-> The large file is broken into chunks to smaller size and stored in a file storage like Google File Storage or HDFS.
+	-> A metadata file is associated with these files which constains information about the chunks.
+	-> Ideally chunk and block size of OS should be same for minimul wastage of data.
+	-> Checksum is implemented as data integrity tool to enure authenticty of data downloaded.
+		-> Checksum bassically calculates the hash of a chunk based on byted, order of bytess, etc. MD5 and SHA are common ways to calculate this Hash.
+	-> HDFS has a name node server that stores chunk info for a file. Name node server also takes care of data replication.
+	
+	
+-> Quad trees : USed to get nearby locations 
