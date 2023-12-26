@@ -1,0 +1,85 @@
+Netflix System design
+
+-> FR : 
+	-> Upload videos 
+	-> Play videos
+	-> Search for Videos
+	-> Support a large number of devices + different quality
+	-> Analytics could be a good to have
+	
+-> NFR :
+	-> Low Latency  + High Availibility
+	
+-> Cassandra is used because it is for heavy read and write as it is no master approach and adding new machine is in ring fashion
+	
+Play videos :
+	-> During playback if the quality is too high and chunks are not coming over fast enough. The quality is automatically reduced. And if too many chunks are availbale the quality is again improved.
+	-> There are libraries that support this which is called adaptive bitrate playing.
+	-> We can have a host identity service. This service will get all the chucnk data about that movie from the cassandra cluster and it will have you geographical location so it will return you the nearest CDN url.
+	-> Analytics can also be a big point here.
+	-> Thumbnail images can also be assocated to chunks  and stored in a hadoop cluster.
+	-> Hadoop cluster is used for machine learning model. Hadoop cluster works on large data sets.
+	
+For uploading :
+	-> We will have a Asset Onboarding service that will connect to the productions house FTP server and download the video. This will be stored in our own S3 bucket. 
+	-> After the file is in S3 it will send a notification to Kafka.
+	-> Kafka sends a message to anotehr service called content processor which will act on the file uploaded to make it available for different devices and in different quality.
+	-> Once processed, the movie could be given top tags.
+	-> After processing the data is uploaded to CDN.
+	-> We also use a Cassandra cluster here and the use of it is to store chunk metadata which willl be returned to user.
+	
+	
+Whatsapp System design
+
+-> FR 
+	-> One to One messages
+	-> Group Chat
+	-> Text/Images/Videos
+	-Read Receipts
+	-Last Seen
+	
+-> NFR :
+	-> High COnsistency
+	-> Low Latency
+	-? High Scale
+	
+	
+	-> One to One message :
+		=-> Here we use something like a websocket handler. This websocket handler keeps connection open with all active user devices that are conencted to the internet.
+		-> Using web socket handler we can send the message to the otehr users.
+		-> We also use somthing called as a websocket manager. This is a repo and stores which device is connected to with web socket handler.
+		-> Web socket manager can also be connected to redis to cache frequent user data to send faster messages.
+		-> When we send a message the message is also relaed to a message service that supports APIs like get message by user id, get unread messages. This uses a cassandra database.
+		-> Cassandra stores messages till the message is delivered to the user. Once it is delivered the message is delivered from the DB.
+		-> Once the websocket manager gets the recipients websocket handler it will give it to the websocket handler of sender and then the websocket handler will talk to the websocket handler of recipient and send the message.
+		-> Here websocket handler also return read reciepts. Using the same logic how message was sent.
+		-> Websockets work on top of TCP.
+		-> Handlers can cache 2 types of information. 1 is the users it handles and 2nd users and handlers of users it has recently conversed with. But the 2nd one should have very low TTL.
+		-> Once the message is received, it can be deleted from the cassandra (discuss with interviewer).
+		-> When and offline device comes online the first thing that is done is, it queries the message service using the websocket handler and gets all its unread messages from the DB
+		
+		-> When the device is offline and we try to send messages. The message can be stored on local DB and once teh device is online the websocket handler can pull all those messages and send it.
+		
+	-> For Group Messages :
+		The flow is slightly different :
+			-> The message is sent in a similar fashion where the websocket handler takes the message and sends it to the message service. 
+			-> But in this case it does not talk to the websocket manager.
+			-> It will add the message to message service as expected but the message service will create a message on kafka topic. 
+			-> Now this kafka topic is consumed by A grroup message handler which will communicate with a group service and get a list of all users in the group.
+			-> With the list it will follow the same pattern for each user where it will ask websocket manager to find websocket for each user and send the message.
+			
+	-> For Image/Videos :
+		-> First user uploads an image.
+		-> In this upload proceess the asset service gets the image 
+		-> And stores it in S3 and maybe CDN.
+		-> Once uploaded, an image id is returned to the device,
+		-> Witht the image id, a message is sent like a normal message to the otehr user/ group via websocket handler.
+		-> Once on the otehr device, we can download it using the image id.
+		-> An optimization here is : In case of image being used frequntly, no need to upload it again and again.
+			-> First before uploading the image the hash of the umage is calculated and if an image with same hash exists it is not uploaded just image id is returned.
+			
+	-> For last seen 
+		-> Use Cassandra as it is write heavy and can also help in analystics
+		
+		
+Cassandra is preffered for high read because DBs that have master slave approach have only 1 node to write to and that makes it not ideal. DBs like cassandra which are a cluster are much better at balancing the laod. 
