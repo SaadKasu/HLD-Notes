@@ -83,3 +83,86 @@ Whatsapp System design
 		
 		
 Cassandra is preffered for high read because DBs that have master slave approach have only 1 node to write to and that makes it not ideal. DBs like cassandra which are a cluster are much better at balancing the laod. 
+
+
+Notification Service :
+	
+FR :
+	-> Send Notification
+	-> Rate Limit Notifications
+	-> Priority Notification
+	-> Plugable
+	
+NFR :
+	-> High Availibility
+	
+
+
+Zoom System Design :
+	
+FR : 
+	-> 1 to 1 calls
+	-> Group Calls
+	-> Audio/Video/Screen share
+	-> Recording
+
+NFR :
+	-> Almost Real time
+	-> High availibility
+	-> Data loss is ok
+	
+	
+How does TCP work ?
+	-> It is a transport layer protocol.
+	-> First client asks server that can we connect and once a positive response is received from the server a connection is established
+	-> Data transfer is done as part of packets. When packet is sent the an acknowoledgement is expected. and in this way TCP maintains its lossless capability.
+	-> If no acknowoledgement is not received the packet is resent
+	-> This is used in HTTP/S and Websockets connection. 
+	-> SIze of TCP header is 20MB.
+	-> All packets are ordered
+	
+This will not work for us as we need real time communication.
+
+How does UDP work ?
+	-> Header size is 8MB
+	-> In this protocol we can face losses.
+	-> Here the client keeps sending packets irrespective of if the packet is revceived by the Server.
+	-> Faster 
+	-> Packets may come out of order.
+	
+	
+For our use case, we will use TCP for initializeing communication and all important aspects of the commmunication but the call will actually be by UDP.
+
+To start a call :
+	-> We can use a websocket approach, like in  whatsapp ot intiate the call. 
+	-> Now how to approach the call. 
+		-> Can users talk to each other in peer-peer fashion to avaoid the overhead of going through websocket.
+		-> How can we establish UDP between to 2 peer to peer devices.
+		-> To establish a peer-peer connection we need a public IP address of both devices and share it with them.
+		-> We use a device called connector that is used to identify the public IP address of the devices.
+		-> How to identify the public IP address :
+			-> Our device talks to ISP router on a particular port. 
+			-> So when we want to connec to an external device, that device will use the ISP router address and port number to uniquely identify the device.
+			
+		-> Once the IP address has been shared the connection can start
+		-> Now if one device has faster connection and other has slower connection it does not make sense to have HD calls.
+		-> Here before the start of the call both parties will exchange few details about bandwidth etc. and a communication is started.
+		->  Each device sends and receives packets and the packet is decoded at the client application.
+		
+		-> The problem with using with this approach for all applications is not all ISP support UDP.
+		-> ANother problem here is that sometimes ISPs might use a Symmetric NAT (Network address translator). 
+		-> This NAT can block 2 simultaneous connections to the same port in the ISP.
+		
+		-> To solve this problem, we use a call server. Instead of using 2 connections 1 for connector and 1 for UDP. We use just 1 call server which sends and receives packets.
+		
+		-> THis complete protocol is a webRTC (Real TIme communication) protocol.
+		
+		-> Why is this approach is not insecure :
+			-> During handshake we might also share encryption and decryptin key which might be used to endcode and decode the packets
+		
+For Group Video Calling :
+	-> If we use the same approach in group calls the bandwidth requirement will be too high. If it was a peer-to peer connection.
+	-> If we use a call server instead the user bandwidth is limited to 1 and the load for sharing the data with other users is put on the call server.
+	
+Recording :
+	-> Using a call server will also help to record the calls 
